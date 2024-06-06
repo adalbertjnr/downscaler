@@ -2,6 +2,7 @@ package k8sutil
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(name, name
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create the watcher. configMap name %s with namespace %s. err: %v", name, namespace, err)
 	}
 	return watcher, nil
 }
