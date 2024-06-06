@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/adalbertjnr/downscaler/core"
+	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/kubeclient"
@@ -16,6 +17,9 @@ func main() {
 
 	defaultOperations := k8sutil.NewKubernetesHelper(client)
 
-	svc := core.NewController(defaultOperations, initialDefaultInput)
+	cron := cron.NewCron()
+
+	svc := core.NewController(defaultOperations, cron, initialDefaultInput)
 	svc.InitCmWatcher()
+	svc.StartDownscaler()
 }

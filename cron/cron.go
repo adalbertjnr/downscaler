@@ -6,7 +6,7 @@ func NewCron() *Cron {
 	return &Cron{}
 }
 
-func (c *Cron) AddCron() {
+func (c *Cron) AddCron(cron string) {
 
 	c.parseCronInput()
 }

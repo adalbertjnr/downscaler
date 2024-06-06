@@ -1,9 +1,9 @@
 package core
 
 import (
-	"fmt"
 	"log"
 
+	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/types"
@@ -16,24 +16,28 @@ import (
 )
 
 type Controller struct {
-	Client     k8sutil.KubernetesHelper
+	client     k8sutil.KubernetesHelper
+	cron       cron.Cron
 	input      input.FromFlags
 	rtObjectch chan runtime.Object
-	cmObjectch chan types.DeschedulerPolicy
+	cmObjectch chan types.DownscalerPolicy
 }
 
-func NewController(client k8sutil.KubernetesHelper, input *input.FromFlags) *Controller {
+func NewController(client k8sutil.KubernetesHelper, cron *cron.Cron, input *input.FromFlags) *Controller {
 	return &Controller{
-		Client:     client,
+		client:     client,
+		cron:       *cron,
 		input:      *input,
 		rtObjectch: make(chan runtime.Object),
-		cmObjectch: make(chan types.DeschedulerPolicy),
+		cmObjectch: make(chan types.DownscalerPolicy),
 	}
 }
 
+const YamlCmPolicy = "policy.yaml"
+
 func (c *Controller) InitCmWatcher() {
 	cm := types.MustParseCmYaml(c.input.InitialCmConfig)
-	watcher, err := c.Client.GetWatcherByConfigMapName(cm.Metadata.Name, cm.Metadata.Namespace)
+	watcher, err := c.client.GetWatcherByConfigMapName(cm.Metadata.Name, cm.Metadata.Namespace)
 	if err != nil {
 		panic(err)
 	}
@@ -42,24 +46,32 @@ func (c *Controller) InitCmWatcher() {
 	go c.ReceiveNewConfigMapData()
 }
 
-func (c *Controller) Receiving() {
-	for data := range c.cmObjectch {
-		fmt.Println(data)
+func (c *Controller) updateNewCronLoop() {
+	for {
+		if cmDataPolicy, ok := <-c.cmObjectch; ok {
+			c.cron.AddCron(cmDataPolicy.Spec.ExecutionOpts.Time.DefaultUptime)
+		}
 	}
 }
 
-func (c *Controller) ReceiveNewConfigMapData() {
-	if object, received := <-c.rtObjectch; received {
-		cm, converted := object.(*corev1.ConfigMap)
-		if converted {
-			data := types.DeschedulerPolicy{}
+func (c *Controller) StartDownscaler() {
+	c.updateNewCronLoop()
+}
 
-			if yamlPolicy, found := cm.Data["policy.yaml"]; found {
-				err := yaml.Unmarshal([]byte(yamlPolicy), data)
-				if err != nil {
-					log.Println(err)
+func (c *Controller) ReceiveNewConfigMapData() {
+	for {
+		if object, received := <-c.rtObjectch; received {
+			cm, converted := object.(*corev1.ConfigMap)
+			if converted {
+				data := &types.DownscalerPolicy{}
+
+				if yamlPolicy, found := cm.Data[YamlCmPolicy]; found {
+					err := yaml.Unmarshal([]byte(yamlPolicy), data)
+					if err != nil {
+						log.Println(err)
+					}
+					c.cmObjectch <- *data
 				}
-				c.cmObjectch <- data
 			}
 		}
 	}
