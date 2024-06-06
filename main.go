@@ -1,10 +1,10 @@
 package main
 
 import (
-	"descheduler/core"
-	"descheduler/input"
-	"descheduler/k8sutil"
-	"descheduler/kubeclient"
+	"github.com/adalbertjnr/downscaler/core"
+	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/kubeclient"
 )
 
 func main() {

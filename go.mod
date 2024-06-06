@@ -1,4 +1,4 @@
-module descheduler
+module github.com/adalbertjnr/downscaler
 
 go 1.22.2
 

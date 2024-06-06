@@ -1,12 +1,13 @@
 package core
 
 import (
-	"descheduler/input"
-	"descheduler/k8sutil"
-	"descheduler/types"
-	"descheduler/watch"
 	"fmt"
 	"log"
+
+	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/types"
+	"github.com/adalbertjnr/downscaler/watch"
 
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
