@@ -17,9 +17,9 @@ func main() {
 
 	defaultOperations := k8sutil.NewKubernetesHelper(client)
 
-	cron := cron.NewCron()
+	cronSvc := cron.NewCron()
 
-	svc := core.NewController(defaultOperations, cron, initialDefaultInput)
+	svc := core.NewController(defaultOperations, cronSvc, initialDefaultInput)
 	svc.InitCmWatcher()
 	svc.StartDownscaler()
 }
