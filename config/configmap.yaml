@@ -5,8 +5,7 @@ metadata:
   namespace: downscaler
 data:
   policy.yaml: |
-    apiVersion: "descheduler/v1alpha2"
-    kind: "DeschedulerPolicy"
+    kind: DownscalerConfigmapPolicy
     spec:
       executionOpts:
         time:
@@ -19,3 +18,10 @@ data:
               key: namespace
               operator: exclude
               values: ["ns1", "ns2", "ns3"]
+          withAdvancedNamespaceOpts:
+            matchCriteria:
+              criteria:
+                - namespaces: ["ns1", "ns2"]
+                  withCron: "07:30-20:30"
+                - namespaces: ["ns3", "ns4"]
+                  withCron: "09:30-22:30"
