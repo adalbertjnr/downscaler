@@ -1,15 +1,15 @@
 package core
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/types"
 	"github.com/adalbertjnr/downscaler/watch"
+	"gopkg.in/yaml.v2"
 
-	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +37,14 @@ const YamlCmPolicy = "policy.yaml"
 
 func (c *Controller) InitCmWatcher() {
 	cm := types.MustParseCmYaml(c.input.InitialCmConfig)
+
+	data := &types.DownscalerPolicy{}
+	err := unmarshalDataPolicy(cm, data)
+	if err != nil {
+		panic(err)
+	}
+
+	c.cron.AddYamlPolicy(data)
 	watcher, err := c.client.GetWatcherByConfigMapName(cm.Metadata.Name, cm.Metadata.Namespace)
 	if err != nil {
 		panic(err)
@@ -44,12 +52,16 @@ func (c *Controller) InitCmWatcher() {
 
 	go watch.ConfigMap(watcher, c.rtObjectch)
 	go c.ReceiveNewConfigMapData()
+	go cron.NewCron().
+		MustAddLocation(data.Spec.ExecutionOpts.Time.TimeZone).
+		StartCron()
 }
 
 func (c *Controller) updateNewCronLoop() {
 	for {
 		if cmDataPolicy, ok := <-c.cmObjectch; ok {
-			c.cron.AddCron(cmDataPolicy.Spec.ExecutionOpts.Time.DefaultUptime)
+			c.cron.AddYamlPolicy(&cmDataPolicy)
+			continue
 		}
 	}
 }
@@ -64,15 +76,24 @@ func (c *Controller) ReceiveNewConfigMapData() {
 			cm, converted := object.(*corev1.ConfigMap)
 			if converted {
 				data := &types.DownscalerPolicy{}
-
-				if yamlPolicy, found := cm.Data[YamlCmPolicy]; found {
-					err := yaml.Unmarshal([]byte(yamlPolicy), data)
-					if err != nil {
-						log.Println(err)
-					}
-					c.cmObjectch <- *data
+				err := unmarshalDataPolicy(cm, data)
+				if err != nil {
+					fmt.Println(err)
 				}
+				c.cmObjectch <- *data
 			}
 		}
 	}
+}
+
+func unmarshalDataPolicy(cm interface{}, data *types.DownscalerPolicy) error {
+	switch v := cm.(type) {
+	case *types.CmManifest:
+		return yaml.Unmarshal([]byte(v.Data.PolicyYaml), data)
+	case *corev1.ConfigMap:
+		if yamlPolicy, found := v.Data[YamlCmPolicy]; found {
+			return yaml.Unmarshal([]byte(yamlPolicy), data)
+		}
+	}
+	return fmt.Errorf("error with the configMap data")
 }
