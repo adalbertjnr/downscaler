@@ -42,5 +42,6 @@ func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(name, name
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. configMap name %s with namespace %s. err: %v", name, namespace, err)
 	}
+	fmt.Println("watcher ok")
 	return watcher, nil
 }
