@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/adalbertjnr/downscaler/core"
+	"github.com/adalbertjnr/downscaler/shared"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -19,18 +20,8 @@ func GetCurrentNamespace() string {
 	return string(namespace)
 }
 
-type Tz struct {
-	Spec struct {
-		ExecutionOpts struct {
-			Time struct {
-				TimeZone string `yaml:"timeZone"`
-			} `yaml:"time"`
-		} `yaml:"executionOpts"`
-	} `yaml:"spec"`
-}
-
 func RetrieveTzFromCm(cm *corev1.ConfigMap) string {
-	tz := &Tz{}
+	tz := &shared.DownscalerTime{}
 	if data, ok := cm.Data[core.YamlCmPolicy]; ok {
 		if err := yaml.Unmarshal([]byte(data), &tz); err != nil {
 			panic(err)
