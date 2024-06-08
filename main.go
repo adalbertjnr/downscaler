@@ -18,10 +18,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	ctx := context.Background()
+
 	currentNamespace := helpers.GetCurrentNamespace()
 
 	kubeApiSvc := k8sutil.NewKubernetesHelper(client)
-	cm, err := kubeApiSvc.GetConfigMap(initialDefaultInput.InitialCmConfig, currentNamespace)
+	cm, err := kubeApiSvc.GetConfigMap(ctx, initialDefaultInput.InitialCmConfig, currentNamespace)
 	if err != nil {
 		panic(err)
 	}
@@ -32,10 +34,10 @@ func main() {
 	}
 
 	currentTz := helpers.RetrieveTzFromCm(cm)
+
 	cronSvc := cron.NewCron().
 		MustAddTimezoneLocation(currentTz)
 
-	ctx := context.Background()
 	svc := core.NewController(ctx, kubeApiSvc, cronSvc, initialDefaultInput)
 	svc.InitCmWatcher(cmMetadata)
 
