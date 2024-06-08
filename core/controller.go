@@ -1,12 +1,17 @@
 package core
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
-	"github.com/adalbertjnr/downscaler/types"
+	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watch"
 	"gopkg.in/yaml.v2"
 
@@ -18,77 +23,86 @@ import (
 type Controller struct {
 	client     k8sutil.KubernetesHelper
 	cron       cron.Cron
-	input      input.FromFlags
 	rtObjectch chan runtime.Object
-	cmObjectch chan types.DownscalerPolicy
+	cmObjectch chan shared.DownscalerPolicy
+	ctx        context.Context
+	cancelFn   context.CancelFunc
 }
 
-func NewController(client k8sutil.KubernetesHelper, cron *cron.Cron, input *input.FromFlags) *Controller {
+func NewController(ctx context.Context, client k8sutil.KubernetesHelper, cron *cron.Cron, input *input.FromFlags) *Controller {
+	context, cancel := context.WithCancel(ctx)
 	return &Controller{
 		client:     client,
 		cron:       *cron,
-		input:      *input,
 		rtObjectch: make(chan runtime.Object),
-		cmObjectch: make(chan types.DownscalerPolicy),
+		cmObjectch: make(chan shared.DownscalerPolicy),
+		ctx:        context,
+		cancelFn:   cancel,
 	}
 }
 
 const YamlCmPolicy = "policy.yaml"
 
-func (c *Controller) InitCmWatcher() {
-	cm := types.MustParseCmYaml(c.input.InitialCmConfig)
-
-	data := &types.DownscalerPolicy{}
-	err := unmarshalDataPolicy(cm, data)
+func (c *Controller) InitCmWatcher(cmMetadata shared.Metadata) {
+	watcher, err := c.client.GetWatcherByConfigMapName(
+		cmMetadata.Name,
+		cmMetadata.Namespace,
+	)
 	if err != nil {
 		panic(err)
 	}
-
-	c.cron.AddYamlPolicy(data)
-	watcher, err := c.client.GetWatcherByConfigMapName(cm.Metadata.Name, cm.Metadata.Namespace)
-	if err != nil {
-		panic(err)
-	}
-
 	go watch.ConfigMap(watcher, c.rtObjectch)
-	go c.ReceiveNewConfigMapData()
-	go cron.NewCron().
-		MustAddLocation(data.Spec.ExecutionOpts.Time.TimeZone).
-		StartCron()
 }
 
 func (c *Controller) updateNewCronLoop() {
 	for {
-		if cmDataPolicy, ok := <-c.cmObjectch; ok {
+		select {
+		case cmDataPolicy := <-c.cmObjectch:
 			c.cron.AddYamlPolicy(&cmDataPolicy)
-			continue
+		case <-c.ctx.Done():
+			return
 		}
 	}
 }
 
 func (c *Controller) StartDownscaler() {
-	c.updateNewCronLoop()
+	go c.ReceiveNewConfigMapData()
+	go c.updateNewCronLoop()
+	<-c.ctx.Done()
+	slog.Info("the downscaler is shuting down gracefully")
 }
 
 func (c *Controller) ReceiveNewConfigMapData() {
 	for {
-		if object, received := <-c.rtObjectch; received {
+		select {
+		case object := <-c.rtObjectch:
 			cm, converted := object.(*corev1.ConfigMap)
 			if converted {
-				data := &types.DownscalerPolicy{}
+				data := &shared.DownscalerPolicy{}
 				err := unmarshalDataPolicy(cm, data)
 				if err != nil {
 					fmt.Println(err)
 				}
 				c.cmObjectch <- *data
 			}
+		case <-c.ctx.Done():
+			return
 		}
 	}
 }
 
-func unmarshalDataPolicy(cm interface{}, data *types.DownscalerPolicy) error {
+func (c *Controller) HandleSignals() {
+	sigch := make(chan os.Signal, 1)
+	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigch
+	slog.Warn("the downscaler received a sigterm signal")
+	c.cancelFn()
+}
+
+func unmarshalDataPolicy(cm interface{}, data *shared.DownscalerPolicy) error {
 	switch v := cm.(type) {
-	case *types.CmManifest:
+	case *shared.CmManifest:
 		return yaml.Unmarshal([]byte(v.Data.PolicyYaml), data)
 	case *corev1.ConfigMap:
 		if yamlPolicy, found := v.Data[YamlCmPolicy]; found {

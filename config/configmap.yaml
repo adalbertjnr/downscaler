@@ -10,7 +10,7 @@ data:
       executionOpts:
         time:
           defaultUptime: "07:30-20:30"
-          timeZone: CET
+          timeZone: "America/Sao_Paulo"
           recurrence: "MON-FRI"
         downscaler:
           downscalerSelectorTerms:

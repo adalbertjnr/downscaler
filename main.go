@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
+
 	"github.com/adalbertjnr/downscaler/core"
 	"github.com/adalbertjnr/downscaler/cron"
+	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/kubeclient"
+	"github.com/adalbertjnr/downscaler/shared"
 )
 
 func main() {
@@ -14,12 +18,28 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	currentNamespace := helpers.GetCurrentNamespace()
 
-	defaultOperations := k8sutil.NewKubernetesHelper(client)
+	kubeApiSvc := k8sutil.NewKubernetesHelper(client)
+	cm, err := kubeApiSvc.GetConfigMap(initialDefaultInput.InitialCmConfig, currentNamespace)
+	if err != nil {
+		panic(err)
+	}
 
-	cronSvc := cron.NewCron()
+	cmMetadata := shared.Metadata{
+		Name:      cm.Name,
+		Namespace: cm.Namespace,
+	}
 
-	svc := core.NewController(defaultOperations, cronSvc, initialDefaultInput)
-	svc.InitCmWatcher()
+	currentTz := helpers.RetrieveTzFromCm(cm)
+	cronSvc := cron.NewCron().
+		MustAddTimezoneLocation(currentTz)
+
+	ctx := context.Background()
+	svc := core.NewController(ctx, kubeApiSvc, cronSvc, initialDefaultInput)
+	svc.InitCmWatcher(cmMetadata)
+
+	go svc.HandleSignals()
+
 	svc.StartDownscaler()
 }

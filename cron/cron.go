@@ -1,9 +1,10 @@
 package cron
 
 import (
+	"log/slog"
 	"time"
 
-	"github.com/adalbertjnr/downscaler/types"
+	"github.com/adalbertjnr/downscaler/shared"
 )
 
 type Criteria struct {
@@ -22,16 +23,18 @@ func NewCron() *Cron {
 	return &Cron{}
 }
 
-func (c *Cron) MustAddLocation(timeZone string) *Cron {
+func (c *Cron) MustAddTimezoneLocation(timeZone string) *Cron {
 	location, err := time.LoadLocation(timeZone)
 	if err != nil {
 		panic(err)
 	}
+	slog.Info("received timezone from the config", "timeZone", timeZone)
 	c.Location = location
 	return c
 }
 
-func (c *Cron) AddYamlPolicy(downscalerCm *types.DownscalerPolicy) {
+func (c *Cron) AddYamlPolicy(downscalerCm *shared.DownscalerPolicy) {
+	slog.Info("new cronjob received")
 	c.parseCronInput()
 }
 
@@ -39,11 +42,5 @@ func (c *Cron) parseCronInput() {
 
 }
 
-func (c *Cron) StartCron() *Cron {
-	go func() {
-		for {
-		}
-	}()
-
-	return c
+func (c *Cron) StartCron() {
 }
