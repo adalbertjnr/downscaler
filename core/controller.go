@@ -52,7 +52,7 @@ func (c *Controller) InitCmWatcher(ctx context.Context, cmMetadata shared.Metada
 	if err != nil {
 		panic(err)
 	}
-	go watch.ConfigMap(watcher, c.rtObjectch)
+	go watch.ConfigMap(ctx, c.client, watcher, c.rtObjectch)
 }
 
 func (c *Controller) updateNewCronLoop() {
