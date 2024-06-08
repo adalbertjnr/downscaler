@@ -39,7 +39,7 @@ func main() {
 		MustAddTimezoneLocation(currentTz)
 
 	svc := core.NewController(ctx, kubeApiSvc, cronSvc, initialDefaultInput)
-	svc.InitCmWatcher(cmMetadata)
+	svc.InitCmWatcher(ctx, cmMetadata)
 
 	go svc.HandleSignals()
 
