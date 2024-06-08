@@ -43,8 +43,9 @@ func NewController(ctx context.Context, client k8sutil.KubernetesHelper, cron *c
 
 const YamlCmPolicy = "policy.yaml"
 
-func (c *Controller) InitCmWatcher(cmMetadata shared.Metadata) {
+func (c *Controller) InitCmWatcher(ctx context.Context, cmMetadata shared.Metadata) {
 	watcher, err := c.client.GetWatcherByConfigMapName(
+		ctx,
 		cmMetadata.Name,
 		cmMetadata.Namespace,
 	)
@@ -68,8 +69,9 @@ func (c *Controller) updateNewCronLoop() {
 func (c *Controller) StartDownscaler() {
 	go c.ReceiveNewConfigMapData()
 	go c.updateNewCronLoop()
+	go c.cron.StartCron()
 	<-c.ctx.Done()
-	slog.Info("the downscaler is shuting down gracefully")
+	slog.Warn("the downscaler is shuting down gracefully")
 }
 
 func (c *Controller) ReceiveNewConfigMapData() {
