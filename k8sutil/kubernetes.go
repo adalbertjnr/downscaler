@@ -3,6 +3,7 @@ package k8sutil
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,6 @@ func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(name, name
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. configMap name %s with namespace %s. err: %v", name, namespace, err)
 	}
-	fmt.Println("watcher ok")
+	slog.Info("watcher created successfully from configmap", "name", name, "namespace", namespace)
 	return watcher, nil
 }
