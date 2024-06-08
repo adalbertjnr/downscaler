@@ -44,15 +44,13 @@ func NewController(ctx context.Context, client k8sutil.KubernetesHelper, cron *c
 const YamlCmPolicy = "policy.yaml"
 
 func (c *Controller) InitCmWatcher(ctx context.Context, cmMetadata shared.Metadata) {
-	watcher, err := c.client.GetWatcherByConfigMapName(
+	go watch.ConfigMap(
 		ctx,
 		cmMetadata.Name,
 		cmMetadata.Namespace,
+		c.client,
+		c.rtObjectch,
 	)
-	if err != nil {
-		panic(err)
-	}
-	go watch.ConfigMap(ctx, c.client, watcher, c.rtObjectch)
 }
 
 func (c *Controller) updateNewCronLoop() {
