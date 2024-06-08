@@ -76,10 +76,12 @@ func (kuberneterActor KubernetesHelperImpl) GetConfigMap(ctx context.Context, na
 }
 
 func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(ctx context.Context, name, namespace string) (watch.Interface, error) {
+	timeout := int64(60)
 	watcher, err := kuberneterActor.K8sClient.CoreV1().
 		ConfigMaps(namespace).
 		Watch(ctx, metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
+			FieldSelector:  fields.OneTermEqualSelector("metadata.name", name).String(),
+			TimeoutSeconds: &timeout,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. configMap name %s with namespace %s. err: %v", name, namespace, err)

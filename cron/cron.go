@@ -52,13 +52,6 @@ func (c *Cron) ParseRecurrenceTime() {
 func (c *Cron) StartCron() {
 }
 
-func validateCondition(condition bool, errorsMsg string) string {
-	if !condition {
-		return errorsMsg
-	}
-	return ""
-}
-
 func (c *Cron) MustAddTimezoneLocation(timeZone string) *Cron {
 	location, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -97,6 +90,13 @@ func (c *Cron) Validate(downscalerData *shared.DownscalerPolicy) []string {
 	}
 
 	return errors
+}
+
+func validateCondition(condition bool, errorsMsg string) string {
+	if !condition {
+		return errorsMsg
+	}
+	return ""
 }
 
 func getCronFromAndUntil(time string) (from, until string) {
