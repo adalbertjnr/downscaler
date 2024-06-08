@@ -57,7 +57,7 @@ func (c *Cron) MustAddTimezoneLocation(timeZone string) *Cron {
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("received timezone from the config", "timeZone", timeZone)
+	slog.Info("received timezone from the config", "timezone", timeZone)
 	c.Location = location
 	return c
 }
