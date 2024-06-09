@@ -20,7 +20,8 @@ func main() {
 	}
 	ctx := context.Background()
 
-	currentNamespace := helpers.GetCurrentNamespace()
+	retrieve := helpers.New()
+	currentNamespace := retrieve.CurrentNamespace()
 
 	kubeApiSvc := k8sutil.NewKubernetesHelper(client)
 	cm, err := kubeApiSvc.GetConfigMap(ctx, initialDefaultInput.InitialCmConfig, currentNamespace)
@@ -33,9 +34,11 @@ func main() {
 		Namespace: cm.Namespace,
 	}
 
-	currentTz := helpers.RetrieveTzFromCm(cm)
+	currentTz := retrieve.Timezone(cm)
+	cronConfig := retrieve.AndParseCronConfig(cm)
 
 	cronSvc := cron.NewCron().
+		AddCronDetails(cronConfig).
 		MustAddTimezoneLocation(currentTz)
 
 	svc := core.NewController(ctx, kubeApiSvc, cronSvc, initialDefaultInput)
