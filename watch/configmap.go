@@ -24,13 +24,12 @@ func ConfigMap(ctx context.Context, name, namespace string, client k8sutil.Kuber
 			continue
 		}
 
-		slog.Info("new configmap watcher was successfully created", "name", name, "namespace", namespace)
 	createNewWatcher:
 		for {
 			event, open := <-watcher.ResultChan()
 			if !open {
 				watcher.Stop()
-				slog.Warn("watcher closed, restarting...", "reason", "expired")
+				slog.Warn("watcher closed, restarting...", "reason", "channel closed")
 				break createNewWatcher
 			}
 			switch event.Type {
