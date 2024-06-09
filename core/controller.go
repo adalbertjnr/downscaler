@@ -57,7 +57,7 @@ func (c *Controller) updateNewCronLoop() {
 	for {
 		select {
 		case cmDataPolicy := <-c.cmObjectch:
-			c.cron.AddYamlPolicy(&cmDataPolicy)
+			c.cron.AddCronDetails(&cmDataPolicy)
 		case <-c.ctx.Done():
 			return
 		}
@@ -68,8 +68,11 @@ func (c *Controller) StartDownscaler() {
 	go c.ReceiveNewConfigMapData()
 	go c.updateNewCronLoop()
 	go c.cron.StartCron()
+
+	slog.Info("downscaler initialization", "status", "success")
+
 	<-c.ctx.Done()
-	slog.Warn("the downscaler is shuting down gracefully")
+	slog.Warn("the downscaler is shutting down gracefully...")
 }
 
 func (c *Controller) ReceiveNewConfigMapData() {
@@ -81,7 +84,7 @@ func (c *Controller) ReceiveNewConfigMapData() {
 				data := &shared.DownscalerPolicy{}
 				err := unmarshalDataPolicy(cm, data)
 				if err != nil {
-					fmt.Println(err)
+					slog.Error("error unmarshaling the yaml data policy", "error", err.Error())
 				}
 				c.cmObjectch <- *data
 			}
@@ -96,7 +99,7 @@ func (c *Controller) HandleSignals() {
 	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigch
-	slog.Warn("the downscaler received a sigterm signal")
+	slog.Warn("the downscaler received a signal to be terminated")
 	c.cancelFn()
 }
 
