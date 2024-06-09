@@ -45,27 +45,26 @@ type DownscalerPolicy struct {
 	Spec struct {
 		ExecutionOpts struct {
 			Time struct {
-				DefaultUptime string `yaml:"defaultUptime"`
-				TimeZone      string `yaml:"timeZone"`
-				Recurrence    string `yaml:"recurrence"`
+				TimeZone   string `yaml:"timeZone"`
+				Recurrence string `yaml:"recurrence"`
+				Downscaler struct {
+					DownscalerSelectorTerms struct {
+						MatchExpressions struct {
+							Key      string   `yaml:"key"`
+							Operator string   `yaml:"operator"`
+							Values   []string `yaml:"values"`
+						} `yaml:"matchExpressions"`
+					} `yaml:"downscalerSelectorTerms"`
+					WithAdvancedNamespaceOpts struct {
+						MatchCriteria struct {
+							Criteria []struct {
+								Namespaces []string `yaml:"namespaces"`
+								WithCron   string   `yaml:"withCron"`
+							} `yaml:"criteria"`
+						} `yaml:"matchCriteria"`
+					} `yaml:"withAdvancedNamespaceOpts"`
+				} `yaml:"downscaler"`
 			} `yaml:"time"`
-			Downscaler struct {
-				DownscalerSelectorTerms struct {
-					MatchExpressions struct {
-						Key      string   `yaml:"key"`
-						Operator string   `yaml:"operator"`
-						Values   []string `yaml:"values"`
-					} `yaml:"matchExpressions"`
-				} `yaml:"downscalerSelectorTerms"`
-				WithAdvancedNamespaceOpts struct {
-					MatchCriteria struct {
-						Criteria []struct {
-							Namespaces []string `yaml:"namespaces"`
-							WithCron   string   `yaml:"withCron"`
-						} `yaml:"criteria"`
-					} `yaml:"matchCriteria"`
-				} `yaml:"withAdvancedNamespaceOpts"`
-			} `yaml:"downscaler"`
 		} `yaml:"executionOpts"`
 	} `yaml:"spec"`
 }
