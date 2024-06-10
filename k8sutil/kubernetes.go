@@ -14,10 +14,10 @@ import (
 )
 
 type KubernetesHelper interface {
-	GetNamespaces() []string
+	GetNamespaces(ctx context.Context) []string
 	GetConfigMap(ctx context.Context, name, namespace string) (*corev1.ConfigMap, error)
 	GetWatcherByConfigMapName(ctx context.Context, name, namespace string) (watch.Interface, error)
-	GetDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error)
+	GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList
 	Downscale(ctx context.Context, namespace string, deployment *v1.Deployment)
 }
 
@@ -31,18 +31,33 @@ func NewKubernetesHelper(client *kubernetes.Clientset) *KubernetesHelperImpl {
 	}
 }
 
-func (kuberneterActor KubernetesHelperImpl) GetNamespaces() []string {
-	return nil
+func (kuberneterActor KubernetesHelperImpl) GetNamespaces(ctx context.Context) []string {
+	var namespacesNames []string
+	namespaces, err := kuberneterActor.K8sClient.CoreV1().
+		Namespaces().
+		List(ctx, metav1.ListOptions{})
+
+	if err != nil {
+		slog.Error("listing namespaces", "error", err)
+		return nil
+	}
+
+	for _, namespace := range namespaces.Items {
+		namespacesNames = append(namespacesNames, namespace.Name)
+	}
+
+	return namespacesNames
 }
 
-func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, namespace string) (*v1.DeploymentList, error) {
+func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList {
 	deployments, err := kuberneterActor.K8sClient.AppsV1().
 		Deployments(namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		slog.Error("get deployments error", "namespace", namespace, "error", err)
+		return nil
 	}
-	return deployments, nil
+	return deployments
 }
 
 func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, namespace string, deployment *v1.Deployment) {
@@ -76,14 +91,26 @@ func (kuberneterActor KubernetesHelperImpl) GetConfigMap(ctx context.Context, na
 }
 
 func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(ctx context.Context, name, namespace string) (watch.Interface, error) {
+	timeout := int64(3600)
 	watcher, err := kuberneterActor.K8sClient.CoreV1().
 		ConfigMaps(namespace).
 		Watch(ctx, metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
+			FieldSelector:  fields.OneTermEqualSelector("metadata.name", name).String(),
+			TimeoutSeconds: &timeout,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. configMap name %s with namespace %s. err: %v", name, namespace, err)
 	}
 	slog.Info("watcher created successfully from configmap", "name", name, "namespace", namespace)
 	return watcher, nil
+}
+
+func TriggerDownscaler(ctx context.Context, k8sClient KubernetesHelper, namespaces []string) {
+	for _, namespace := range namespaces {
+		deployments := k8sClient.GetDeployments(ctx, namespace)
+
+		for _, deployment := range deployments.Items {
+			k8sClient.Downscale(ctx, namespace, &deployment)
+		}
+	}
 }
