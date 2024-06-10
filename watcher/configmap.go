@@ -1,4 +1,4 @@
-package watch
+package watcher
 
 import (
 	"context"
@@ -6,17 +6,28 @@ import (
 	"time"
 
 	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/shared"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-func ConfigMap(ctx context.Context, name, namespace string, client k8sutil.KubernetesHelper, cmObjectch chan runtime.Object) {
+type Watcher struct {
+	RtObjectch chan runtime.Object
+}
+
+func New() *Watcher {
+	return &Watcher{
+		RtObjectch: make(chan runtime.Object),
+	}
+}
+
+func (w *Watcher) ConfigMap(ctx context.Context, metadata shared.Metadata, client k8sutil.KubernetesHelper) {
 	for {
 		watcher, err := client.GetWatcherByConfigMapName(
 			ctx,
-			name,
-			namespace,
+			metadata.Name,
+			metadata.Namespace,
 		)
 		if err != nil {
 			slog.Error("error initializing a new configmap watcher", "next retry", "10 seconds", "error", err.Error())
@@ -39,7 +50,7 @@ func ConfigMap(ctx context.Context, name, namespace string, client k8sutil.Kuber
 					"name", cm.Name,
 					"namespace", cm.Namespace,
 				)
-				cmObjectch <- event.Object
+				w.RtObjectch <- event.Object
 			case watch.Error:
 				slog.Error("error updating the object",
 					"resource type", "configmap",

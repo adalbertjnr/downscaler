@@ -10,6 +10,7 @@ import (
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/kubeclient"
 	"github.com/adalbertjnr/downscaler/shared"
+	"github.com/adalbertjnr/downscaler/watcher"
 )
 
 func main() {
@@ -24,7 +25,10 @@ func main() {
 	currentNamespace := retrieve.CurrentNamespace()
 
 	kubeApiSvc := k8sutil.NewKubernetesHelper(client)
-	cm, err := kubeApiSvc.GetConfigMap(ctx, initialDefaultInput.InitialCmConfig, currentNamespace)
+	cm, err := kubeApiSvc.GetConfigMap(ctx,
+		initialDefaultInput.InitialCmConfig,
+		currentNamespace,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -34,15 +38,22 @@ func main() {
 		Namespace: cm.Namespace,
 	}
 
+	watch := watcher.New()
+	go watch.ConfigMap(ctx, cmMetadata, kubeApiSvc)
+
 	currentTz := retrieve.Timezone(cm)
 	cronConfig := retrieve.AndParseCronConfig(cm)
 
 	cronSvc := cron.NewCron().
-		AddCronDetails(cronConfig).
-		MustAddTimezoneLocation(currentTz)
+		MustAddTimezoneLocation(currentTz).
+		AddKubeApiSvc(kubeApiSvc)
 
-	svc := core.NewController(ctx, kubeApiSvc, cronSvc, initialDefaultInput)
-	svc.InitCmWatcher(ctx, cmMetadata)
+	svc := core.NewController(ctx,
+		kubeApiSvc,
+		cronSvc,
+		cronConfig,
+		watch,
+	)
 
 	go svc.HandleSignals()
 

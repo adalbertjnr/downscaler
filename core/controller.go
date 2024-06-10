@@ -9,10 +9,9 @@ import (
 	"syscall"
 
 	"github.com/adalbertjnr/downscaler/cron"
-	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/shared"
-	"github.com/adalbertjnr/downscaler/watch"
+	"github.com/adalbertjnr/downscaler/watcher"
 	"gopkg.in/yaml.v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,37 +20,36 @@ import (
 )
 
 type Controller struct {
-	client     k8sutil.KubernetesHelper
-	cron       cron.Cron
-	rtObjectch chan runtime.Object
-	cmObjectch chan shared.DownscalerPolicy
-	ctx        context.Context
-	cancelFn   context.CancelFunc
+	client            k8sutil.KubernetesHelper
+	cron              cron.Cron
+	rtObjectch        chan runtime.Object
+	cmObjectch        chan shared.DownscalerPolicy
+	ctx               context.Context
+	cancelFn          context.CancelFunc
+	initialCronConfig *shared.DownscalerPolicy
+	watch             *watcher.Watcher
 }
 
-func NewController(ctx context.Context, client k8sutil.KubernetesHelper, cron *cron.Cron, input *input.FromFlags) *Controller {
+func NewController(ctx context.Context,
+	client k8sutil.KubernetesHelper,
+	cron *cron.Cron,
+	initialCronConfig *shared.DownscalerPolicy,
+	watch *watcher.Watcher,
+) *Controller {
 	context, cancel := context.WithCancel(ctx)
 	return &Controller{
-		client:     client,
-		cron:       *cron,
-		rtObjectch: make(chan runtime.Object),
-		cmObjectch: make(chan shared.DownscalerPolicy),
-		ctx:        context,
-		cancelFn:   cancel,
+		client:            client,
+		cron:              *cron,
+		initialCronConfig: initialCronConfig,
+		rtObjectch:        make(chan runtime.Object, 1),
+		cmObjectch:        make(chan shared.DownscalerPolicy, 1),
+		ctx:               context,
+		cancelFn:          cancel,
+		watch:             watch,
 	}
 }
 
 const YamlCmPolicy = "policy.yaml"
-
-func (c *Controller) InitCmWatcher(ctx context.Context, cmMetadata shared.Metadata) {
-	go watch.ConfigMap(
-		ctx,
-		cmMetadata.Name,
-		cmMetadata.Namespace,
-		c.client,
-		c.rtObjectch,
-	)
-}
 
 func (c *Controller) updateNewCronLoop() {
 	for {
@@ -71,6 +69,7 @@ func (c *Controller) StartDownscaler() {
 
 	slog.Info("downscaler initialization", "status", "success")
 
+	c.cmObjectch <- *c.initialCronConfig
 	<-c.ctx.Done()
 	slog.Warn("the downscaler is shutting down gracefully...")
 }
@@ -78,7 +77,7 @@ func (c *Controller) StartDownscaler() {
 func (c *Controller) ReceiveNewConfigMapData() {
 	for {
 		select {
-		case object := <-c.rtObjectch:
+		case object := <-c.watch.RtObjectch:
 			cm, converted := object.(*corev1.ConfigMap)
 			if converted {
 				data := &shared.DownscalerPolicy{}
