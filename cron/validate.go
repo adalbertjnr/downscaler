@@ -1,10 +1,34 @@
 package cron
 
 import (
+	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/adalbertjnr/downscaler/shared"
 )
+
+func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []string) bool {
+	k8sNamespaces := c.Kubernetes.GetNamespaces(ctx)
+
+	k8sNamespaceSet := make(map[string]struct{})
+	for _, k8sNs := range k8sNamespaces {
+		k8sNamespaceSet[k8sNs] = struct{}{}
+	}
+
+	for _, cronNamespace := range cronTaskNamespaces {
+		if _, exists := k8sNamespaceSet[cronNamespace]; !exists {
+			slog.Error("namespace validation", "error", ErrNamespaceFromConfigDoNotExists,
+				"next retry", "1 minute",
+			)
+			return false
+		}
+		slog.Info("namespace validation", "namespace", cronNamespace,
+			"result", "exists",
+		)
+	}
+	return true
+}
 
 func stillSameRecurrenceTime(currentRecurrence, newRecurrence string) bool {
 	return currentRecurrence != "" && strings.EqualFold(currentRecurrence, newRecurrence)
