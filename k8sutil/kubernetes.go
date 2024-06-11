@@ -65,12 +65,12 @@ func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, names
 	slog.Info("downscaling deployment",
 		"name", deployment.Name,
 		"namespace", deployment.Namespace,
-		"current replicas", deployment.Spec.Replicas,
+		"current replicas", *deployment.Spec.Replicas,
 		"desired replicas state", desiredReplicas,
 	)
 
 	deployment.Spec.Replicas = &desiredReplicas
-	scaleResp, err := kuberneterActor.K8sClient.AppsV1().
+	_, err := kuberneterActor.K8sClient.AppsV1().
 		Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
 		slog.Error("downscaling error", "deployment", deployment.Name, "error", err.Error())
@@ -81,7 +81,6 @@ func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, names
 		"namespace", deployment.Name,
 		"current replicas", desiredReplicas,
 	)
-	fmt.Println("printing the scaleresp.name", scaleResp.Name)
 }
 
 func (kuberneterActor KubernetesHelperImpl) GetConfigMap(ctx context.Context, name, namespace string) (*corev1.ConfigMap, error) {
@@ -108,7 +107,6 @@ func (kuberneterActor KubernetesHelperImpl) GetWatcherByConfigMapName(ctx contex
 func TriggerDownscaler(ctx context.Context, k8sClient KubernetesHelper, namespaces []string) {
 	for _, namespace := range namespaces {
 		deployments := k8sClient.GetDeployments(ctx, namespace)
-
 		for _, deployment := range deployments.Items {
 			k8sClient.Downscale(ctx, namespace, &deployment)
 		}
