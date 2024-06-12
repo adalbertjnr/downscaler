@@ -17,9 +17,10 @@ const (
 )
 
 type Criteria struct {
-	Namespaces []string
-	WithCron   string
-	Recurrence string
+	Namespaces   []string
+	WithCron     string
+	Recurrence   string
+	CriteriaList map[string]struct{}
 }
 
 type CronTask struct {
@@ -27,14 +28,14 @@ type CronTask struct {
 }
 
 type Cron struct {
-	Kubernetes         k8sutil.KubernetesHelper
-	Location           *time.Location
-	Tasks              []CronTask
-	ExcludedNamespaces []string
-	Recurrence         string
-	taskch             chan []CronTask
-	stopch             chan struct{}
-	taskRoutines       map[string]chan struct{}
+	Kubernetes        k8sutil.KubernetesHelper
+	Location          *time.Location
+	Tasks             []CronTask
+	IgnoredNamespaces map[string]struct{}
+	Recurrence        string
+	taskch            chan []CronTask
+	stopch            chan struct{}
+	taskRoutines      map[string]chan struct{}
 }
 
 func NewCron() *Cron {
@@ -88,25 +89,51 @@ func (c *Cron) parseCronConfig(
 	}
 
 	if expression.withExclude() {
-		namespaces := expression.MatchExpressions.Values
-		c.ExcludedNamespaces = append([]string{}, namespaces...)
+		expressionValues := expression.MatchExpressions.Values
+		excludedNamespaces := make([]string, len(expressionValues))
+		excludedNamespaces = append(excludedNamespaces, expressionValues...)
+		ignoredNamespaces := expression.showIgnoredNamespaces(excludedNamespaces)
+
+		c.ignoredNamespacesCleanupValidation(ignoredNamespaces)
 	}
 
 	if criteria.available() {
 		tasks := make([]CronTask, len(criteria.Criteria))
 
+		scheduledNamespaces := separatedScheduledNamespaces(criteria)
+
 		for i, crit := range criteria.Criteria {
 			tasks[i] = CronTask{
 				Criteria: Criteria{
-					Namespaces: crit.Namespaces,
-					WithCron:   crit.WithCron,
-					Recurrence: c.Recurrence,
+					Namespaces:   crit.Namespaces,
+					WithCron:     crit.WithCron,
+					Recurrence:   c.Recurrence,
+					CriteriaList: scheduledNamespaces,
 				},
 			}
 		}
 		c.killCurrentCronRoutines()
 		c.taskch <- tasks
 	}
+}
+
+func separatedScheduledNamespaces(criterias DownscalerCriteria) map[string]struct{} {
+	scheduledNamespaces := make([]string, 0)
+	for _, criteria := range criterias.Criteria {
+		scheduledNamespaces = append([]string{}, criteria.Namespaces...)
+		continue
+	}
+	return generateScheduledNamespaces(scheduledNamespaces)
+}
+
+func generateScheduledNamespaces(scheduledNamespaces []string) map[string]struct{} {
+	scheduledNamespacesMap := make(map[string]struct{}, len(scheduledNamespaces))
+	for _, namespace := range scheduledNamespaces {
+		if _, exists := scheduledNamespacesMap[namespace]; !exists {
+			scheduledNamespacesMap[namespace] = struct{}{}
+		}
+	}
+	return scheduledNamespacesMap
 }
 
 func (c *Cron) StartCron() {
@@ -136,8 +163,8 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 			c.taskRoutines[key] = stopch
 
 			go c.runTasks(task, stopch)
-			slog.Info("changes detected in cron time",
-				"action", "triggering new routine",
+			slog.Info("changes detected in crontime",
+				"action", "triggering task routine",
 				"recurrence", task.Recurrence,
 				"namespaces", task.Namespaces,
 				"crontime", task.WithCron,
@@ -162,6 +189,7 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 			"with cron(s) task", task.WithCron,
 			"with recurrence", task.Recurrence,
 			"status", "terminated",
+			"reason", "crontime updated",
 		)
 	}()
 
@@ -173,18 +201,13 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 	)
 
 	recurrenceDays := parseRecurrence(recurrence)
+crontask:
 	for {
 		select {
 		case <-stopch:
-			slog.Info("crontask routine will be terminated",
-				"with namespace(s) task", task.Namespaces,
-				"with cron(s) task", task.WithCron,
-				"with recurrence", task.Recurrence,
-				"reason", "recycling due the new crontime changes")
-			return
+			break crontask
 		default:
 			now := time.Now().In(c.Location)
-
 			if !c.isRecurrenceDay(now.Weekday(), recurrenceDays) {
 				slog.Info("time",
 					"today is", now.Weekday().String(),
@@ -205,7 +228,7 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
 				nw := fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
 				slog.Info("crontime",
-					"provided cronjob time", ut,
+					"provided crontime", ut,
 					"current time", nw,
 					"next retry", "1 minute",
 				)
@@ -218,7 +241,12 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 				"namespaces", namespaces,
 			)
 
-			k8sutil.TriggerDownscaler(ctx, c.Kubernetes, namespaces)
+			k8sutil.TriggerDownscaler(ctx,
+				c.Kubernetes,
+				namespaces,
+				c.IgnoredNamespaces,
+				task.CriteriaList,
+			)
 
 			nextRun := time.Until(from.Add(20 * time.Hour))
 			time.Sleep(nextRun)
@@ -229,9 +257,8 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 
 func (c *Cron) killCurrentCronRoutines() {
 	if len(c.taskRoutines) > 0 {
-		slog.Info("cleaning crontask map", "reason", "crontime update received")
 		for key, stopch := range c.taskRoutines {
-			slog.Info("cleaning crontask map", "key", key)
+			slog.Info("cleaning crontask map", "key", key, "reason", "crontime updated")
 			delete(c.taskRoutines, key)
 			close(stopch)
 		}
