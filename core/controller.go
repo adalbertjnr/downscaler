@@ -47,8 +47,6 @@ func NewController(ctx context.Context,
 	}
 }
 
-const YamlCmPolicy = "policy.yaml"
-
 func (c *Controller) updateNewCronLoop() {
 	for {
 		select {
@@ -65,7 +63,7 @@ func (c *Controller) StartDownscaler() {
 	go c.updateNewCronLoop()
 	go c.cron.StartCron()
 
-	slog.Info("downscaler initialization", "status", "success")
+	slog.Info("downscaler initialization", "status", "initialized")
 
 	c.cmObjectch <- *c.initialCronConfig
 	<-c.ctx.Done()
