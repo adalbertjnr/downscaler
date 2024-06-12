@@ -26,15 +26,17 @@ func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []
 	}
 
 	for _, cronNamespace := range cronTaskNamespaces {
+		if cronNamespace == shared.AnyOther {
+			continue
+		}
 		if _, exists := k8sNamespaceSet[cronNamespace]; !exists {
-			slog.Error("namespace validation", "error", ErrNamespaceFromConfigDoNotExists,
+			slog.Error("namespace validation",
+				"namespace", cronNamespace,
+				"error", ErrNamespaceFromConfigDoNotExists,
 				"next retry", "1 minute",
 			)
 			return false
 		}
-		slog.Info("namespace validation", "namespace", cronNamespace,
-			"result", "exists",
-		)
 	}
 	return true
 }

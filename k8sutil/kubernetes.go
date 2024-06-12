@@ -123,9 +123,9 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 		TimeoutSeconds: &timeout,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the watcher. downscaler name %s with namespace %s. err: %v", name, namespace, err)
+		return nil, fmt.Errorf("failed to create the watcher. downscaler name %s. err: %v", name, err)
 	}
-	slog.Info("watcher created successfully from downscaler", "name", name, "namespace", namespace)
+	slog.Info("watcher created successfully from downscaler", "name", name)
 	return watcher, nil
 }
 

@@ -90,8 +90,7 @@ func (c *Cron) parseCronConfig(
 
 	if expression.withExclude() {
 		expressionValues := expression.MatchExpressions.Values
-		excludedNamespaces := make([]string, len(expressionValues))
-		excludedNamespaces = append(excludedNamespaces, expressionValues...)
+		excludedNamespaces := append([]string{}, expressionValues...)
 		ignoredNamespaces := expression.showIgnoredNamespaces(excludedNamespaces)
 
 		c.ignoredNamespacesCleanupValidation(ignoredNamespaces)
@@ -101,7 +100,6 @@ func (c *Cron) parseCronConfig(
 		tasks := make([]CronTask, len(criteria.Criteria))
 
 		scheduledNamespaces := separatedScheduledNamespaces(criteria)
-
 		for i, crit := range criteria.Criteria {
 			tasks[i] = CronTask{
 				Criteria: Criteria{
@@ -230,16 +228,12 @@ crontask:
 				slog.Info("crontime",
 					"provided crontime", ut,
 					"current time", nw,
+					"namespace(s)", namespaces,
 					"next retry", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
 				continue
 			}
-
-			slog.Info("initializing downscaling process",
-				"recurrence", recurrence,
-				"namespaces", namespaces,
-			)
 
 			k8sutil.TriggerDownscaler(ctx,
 				c.Kubernetes,
