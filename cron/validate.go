@@ -8,6 +8,15 @@ import (
 	"github.com/adalbertjnr/downscaler/shared"
 )
 
+func (v *Cron) ignoredNamespacesCleanupValidation(in map[string]struct{}) {
+	if len(v.IgnoredNamespaces) > 0 {
+		v.IgnoredNamespaces = nil
+		v.IgnoredNamespaces = in
+		return
+	}
+	v.IgnoredNamespaces = in
+}
+
 func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []string) bool {
 	k8sNamespaces := c.Kubernetes.GetNamespaces(ctx)
 
