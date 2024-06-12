@@ -46,7 +46,7 @@ func (w *Watcher) DownscalerKind(
 			event, open := <-watcher.ResultChan()
 			if !open {
 				watcher.Stop()
-				slog.Warn("watcher closed", "reason", "recycling")
+				slog.Warn("watcher closed", "reason", "recycling due to timeout seconds")
 				break createNewWatcher
 			}
 			switch event.Type {
@@ -62,7 +62,7 @@ func (w *Watcher) DownscalerKind(
 				w.RtObjectch <- event.Object
 			case watch.Error:
 				slog.Error("error updating the object",
-					"resource type", "configmap",
+					"resource type", "downscalercrd",
 				)
 			}
 		}
