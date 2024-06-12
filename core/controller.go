@@ -2,20 +2,18 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/adalbertjnr/downscaler/cron"
+	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
-	"gopkg.in/yaml.v2"
 
-	corev1 "k8s.io/api/core/v1"
-
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -78,10 +76,10 @@ func (c *Controller) ReceiveNewConfigMapData() {
 	for {
 		select {
 		case object := <-c.watch.RtObjectch:
-			cm, converted := object.(*corev1.ConfigMap)
+			cm, converted := object.(*unstructured.Unstructured)
 			if converted {
 				data := &shared.DownscalerPolicy{}
-				err := unmarshalDataPolicy(cm, data)
+				err := helpers.UnmarshalDataPolicy(cm, data)
 				if err != nil {
 					slog.Error("error unmarshaling the yaml data policy", "error", err.Error())
 				}
@@ -100,16 +98,4 @@ func (c *Controller) HandleSignals() {
 	<-sigch
 	slog.Warn("the downscaler received a signal to be terminated")
 	c.cancelFn()
-}
-
-func unmarshalDataPolicy(cm interface{}, data *shared.DownscalerPolicy) error {
-	switch v := cm.(type) {
-	case *shared.CmManifest:
-		return yaml.Unmarshal([]byte(v.Data.PolicyYaml), data)
-	case *corev1.ConfigMap:
-		if yamlPolicy, found := v.Data[YamlCmPolicy]; found {
-			return yaml.Unmarshal([]byte(yamlPolicy), data)
-		}
-	}
-	return fmt.Errorf("error with the configMap data")
 }
