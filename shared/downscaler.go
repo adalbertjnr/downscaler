@@ -4,6 +4,8 @@ const (
 	Version  = "v1"
 	Resource = "downscalers"
 	Group    = "scheduler.go"
+
+	AnyOther = "any-other"
 )
 
 type Metadata struct {

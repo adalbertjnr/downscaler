@@ -115,9 +115,9 @@ func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, names
 func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error) {
 	timeout := int64(3600)
 	watcher, err := kubernetesActor.DynamicClient.Resource(schema.GroupVersionResource{
-		Group:    "scheduler.go",
-		Version:  "v1",
-		Resource: "downscalers",
+		Group:    shared.Group,
+		Version:  shared.Version,
+		Resource: shared.Resource,
 	}).Namespace("").Watch(ctx, metav1.ListOptions{
 		FieldSelector:  fields.OneTermEqualSelector("metadata.name", name).String(),
 		TimeoutSeconds: &timeout,
@@ -129,11 +129,61 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	return watcher, nil
 }
 
-func TriggerDownscaler(ctx context.Context, k8sClient KubernetesHelper, namespaces []string) {
+func TriggerDownscaler(ctx context.Context,
+	k8sClient KubernetesHelper,
+	namespaces []string,
+	ignoredNamespaces map[string]struct{},
+	criteriaList map[string]struct{},
+) {
+
 	for _, namespace := range namespaces {
+		if _, exists := ignoredNamespaces[namespace]; exists {
+			slog.Info("downscaling process",
+				"current namespace", namespace,
+				"status", "ignored",
+			)
+			continue
+		}
+
+		if namespace == shared.AnyOther {
+			go triggerAnyOther(ctx, k8sClient, criteriaList, ignoredNamespaces)
+			continue
+		}
+
 		deployments := k8sClient.GetDeployments(ctx, namespace)
 		for _, deployment := range deployments.Items {
 			k8sClient.Downscale(ctx, namespace, &deployment)
 		}
 	}
+
+}
+
+func triggerAnyOther(ctx context.Context,
+	k8sClient KubernetesHelper,
+	scheduledNamespaces map[string]struct{},
+	ignoredNamespaces map[string]struct{},
+) {
+
+	clusterNamespaces := k8sClient.GetNamespaces(ctx)
+	for _, clusterNamespace := range clusterNamespaces {
+
+		if _, exists := ignoredNamespaces[clusterNamespace]; exists {
+			slog.Info("triggering any-other",
+				"ignoring namespace", clusterNamespace)
+			continue
+		}
+
+		if _, scheduled := scheduledNamespaces[clusterNamespace]; scheduled {
+			slog.Info("triggering any-other",
+				"ignoring namespace", clusterNamespace,
+				"reason", "already scheduled by another routine",
+			)
+		}
+
+		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
+		for _, deployment := range deployments.Items {
+			k8sClient.Downscale(ctx, clusterNamespace, &deployment)
+		}
+	}
+
 }
