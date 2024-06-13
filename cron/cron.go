@@ -214,6 +214,7 @@ crontask:
 					"current time", nw,
 					"provided crontime", ut,
 					"namespace(s)", namespaces,
+					"status", "before downscaling",
 					"next retry", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
@@ -246,7 +247,7 @@ crontask:
 							"current time", nw,
 							"provided time", fr,
 							"namespace(s)", namespaces,
-							"status", "waiting next window",
+							"status", "after downscaling",
 							"next retry", "1 minute",
 						)
 						time.Sleep(time.Minute * 1)
