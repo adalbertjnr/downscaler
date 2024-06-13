@@ -1,47 +1,23 @@
 package shared
 
-import (
-	"os"
+const (
+	Version  = "v1"
+	Resource = "downscalers"
+	Group    = "scheduler.go"
 
-	"gopkg.in/yaml.v3"
+	AnyOther = "any-other"
 )
-
-func MustParseCmYaml(path string) *CmManifest {
-	cm, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-
-	cmManifest := &CmManifest{}
-	if err := yaml.Unmarshal(cm, cmManifest); err != nil {
-		panic(err)
-	}
-
-	return cmManifest
-}
 
 type Metadata struct {
 	Name      string
 	Namespace string
 }
 
-type CmManifest struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name      string `yaml:"name"`
-		Namespace string `yaml:"namespace"`
-	} `yaml:"metadata"`
-	Data struct {
-		PolicyYaml string `yaml:"policy.yaml"`
-	} `yaml:"data"`
-}
-
-func (d *DownscalerPolicy) Validate() {
-}
-
 type DownscalerPolicy struct {
-	Kind string `yaml:"kind"`
+	Kind     string `yaml:"kind"`
+	Metadata struct {
+		Name string `yaml:"name"`
+	}
 	Spec struct {
 		ExecutionOpts struct {
 			Time struct {
