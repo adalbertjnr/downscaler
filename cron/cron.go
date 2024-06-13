@@ -245,7 +245,7 @@ crontask:
 						nw := fmt.Sprintf("%02d:%02d", nowAfterScheduling.Hour(), nowAfterScheduling.Minute())
 						slog.Info("crontask routine",
 							"current time", nw,
-							"provided time", fr,
+							"provided crontime", fr,
 							"namespace(s)", namespaces,
 							"status", "after downscaling",
 							"next retry", "1 minute",

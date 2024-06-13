@@ -100,11 +100,12 @@ func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Con
 		slog.Error("downscaling error", "deployment", deployment.Name, "error", err.Error())
 		return
 	}
-	slog.Info("downscale was done successfully",
+	slog.Info("downscaling",
 		"name", deployment.Name,
 		"namespace", deployment.Name,
 		"old state replicas", currentReplicas,
 		"current state replicas", desiredReplicas,
+		"status", "success",
 	)
 }
 
@@ -139,9 +140,9 @@ func InitDownscalingProcess(ctx context.Context,
 
 	for _, namespace := range namespaces {
 		if _, exists := ignoredNamespaces[namespace]; exists {
-			slog.Info("downscaling process",
-				"current namespace", namespace,
-				"status", "ignored",
+			slog.Info("downscaling message",
+				"ignoring namespace", namespace,
+				"reason", "already ignored from the config",
 			)
 			continue
 		}
@@ -169,15 +170,15 @@ func triggerAnyOther(ctx context.Context,
 	for _, clusterNamespace := range clusterNamespaces {
 
 		if _, exists := ignoredNamespaces[clusterNamespace]; exists {
-			slog.Info("downscaling",
+			slog.Info("downscaling message",
 				"ignoring namespace", clusterNamespace,
-				"reason", "ignored from the config",
+				"reason", "already ignored from the config",
 			)
 			continue
 		}
 
 		if _, scheduled := scheduledNamespaces[clusterNamespace]; scheduled {
-			slog.Info("downscaling",
+			slog.Info("downscaling message",
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
 			)

@@ -22,16 +22,16 @@ spec:
             criteria:
               - namespaces: 
                 - "nginx-2"
-                withCron: "07:30-20:10"
+                withCron: "01:30-20:40"
               - namespaces:
                 - "nginx-5"
-                withCron: "07:30-20:12"
+                withCron: "01:30-20:45"
               - namespaces:
                 - "nginx-6"
-                withCron: "07:30-20:14"
+                withCron: "01:30-20:47"
               - namespaces:
                 - "nginx-7"
-                withCron: "07:30-20:15"
+                withCron: "01:30-20:49"
               - namespaces:
                 - "any-other"
-                withCron: "07:30-20:20"
+                withCron: "01:30-20:51"
