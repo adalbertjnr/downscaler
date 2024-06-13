@@ -91,12 +91,6 @@ func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, 
 
 func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, namespace string, deployment *v1.Deployment) {
 	desiredReplicas := int32(0)
-	slog.Info("downscaling deployment",
-		"name", deployment.Name,
-		"namespace", deployment.Namespace,
-		"current replicas", *deployment.Spec.Replicas,
-		"desired replicas state", desiredReplicas,
-	)
 
 	deployment.Spec.Replicas = &desiredReplicas
 	_, err := kuberneterActor.K8sClient.AppsV1().
@@ -108,7 +102,8 @@ func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, names
 	slog.Info("downscale was done successfully",
 		"name", deployment.Name,
 		"namespace", deployment.Name,
-		"current replicas", desiredReplicas,
+		"old state replicas", *deployment.Spec.Replicas,
+		"current state replicas", desiredReplicas,
 	)
 }
 
@@ -168,13 +163,15 @@ func triggerAnyOther(ctx context.Context,
 	for _, clusterNamespace := range clusterNamespaces {
 
 		if _, exists := ignoredNamespaces[clusterNamespace]; exists {
-			slog.Info("triggering any-other",
-				"ignoring namespace", clusterNamespace)
+			slog.Info("downscaling",
+				"ignoring namespace", clusterNamespace,
+				"reason", "ignored from the config",
+			)
 			continue
 		}
 
 		if _, scheduled := scheduledNamespaces[clusterNamespace]; scheduled {
-			slog.Info("triggering any-other",
+			slog.Info("downscaling",
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
 			)
