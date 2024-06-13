@@ -20,7 +20,7 @@ type KubernetesHelper interface {
 	GetNamespaces(ctx context.Context) []string
 	GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
-	Downscale(ctx context.Context, namespace string, deployment *v1.Deployment)
+	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
 }
 
@@ -89,7 +89,7 @@ func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, 
 	return deployments
 }
 
-func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, namespace string, deployment *v1.Deployment) {
+func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment) {
 	desiredReplicas := int32(0)
 	currentReplicas := *deployment.Spec.Replicas
 
@@ -153,7 +153,7 @@ func InitDownscalingProcess(ctx context.Context,
 
 		deployments := k8sClient.GetDeployments(ctx, namespace)
 		for _, deployment := range deployments.Items {
-			k8sClient.Downscale(ctx, namespace, &deployment)
+			k8sClient.DownscaleDeployments(ctx, namespace, &deployment)
 		}
 	}
 
@@ -186,7 +186,7 @@ func triggerAnyOther(ctx context.Context,
 
 		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
 		for _, deployment := range deployments.Items {
-			k8sClient.Downscale(ctx, clusterNamespace, &deployment)
+			k8sClient.DownscaleDeployments(ctx, clusterNamespace, &deployment)
 		}
 	}
 }
