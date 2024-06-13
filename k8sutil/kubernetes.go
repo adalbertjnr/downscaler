@@ -178,6 +178,7 @@ func triggerAnyOther(ctx context.Context,
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
 			)
+			continue
 		}
 
 		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
@@ -185,5 +186,4 @@ func triggerAnyOther(ctx context.Context,
 			k8sClient.Downscale(ctx, clusterNamespace, &deployment)
 		}
 	}
-
 }
