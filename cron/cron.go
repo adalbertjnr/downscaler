@@ -192,10 +192,9 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 	}()
 
 	var (
-		from, until = fromUntil(task.WithCron, c.Location)
-		namespaces  = task.Namespaces
-		recurrence  = task.Recurrence
-		ctx         = context.Background()
+		namespaces = task.Namespaces
+		recurrence = task.Recurrence
+		ctx        = context.Background()
 	)
 
 	recurrenceDays := parseRecurrence(recurrence)
@@ -205,10 +204,14 @@ crontask:
 		case <-stopch:
 			break crontask
 		default:
-			now := time.Now().In(c.Location)
-			if !c.isRecurrenceDay(now.Weekday(), recurrenceDays) {
+			var (
+				_, until            = fromUntil(task.WithCron, c.Location)
+				nowBeforeScheduling = time.Now().In(c.Location)
+			)
+
+			if !c.isRecurrenceDay(nowBeforeScheduling.Weekday(), recurrenceDays) {
 				slog.Info("time",
-					"today is", now.Weekday().String(),
+					"today is", nowBeforeScheduling.Weekday().String(),
 					"recurrence days range", recurrenceDays,
 					"action", "waiting",
 					"next try", "1 minute",
@@ -222,9 +225,9 @@ crontask:
 				continue
 			}
 
-			if !now.After(until) {
+			if !nowBeforeScheduling.After(until) {
 				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
-				nw := fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
+				nw := fmt.Sprintf("%02d:%02d", nowBeforeScheduling.Hour(), nowBeforeScheduling.Minute())
 				slog.Info("crontime",
 					"provided crontime", ut,
 					"current time", nw,
@@ -242,8 +245,33 @@ crontask:
 				task.CriteriaList,
 			)
 
-			nextRun := time.Until(from.Add(20 * time.Hour))
-			time.Sleep(nextRun)
+		restartCronTask:
+			for {
+				select {
+				case <-stopch:
+					break crontask
+				default:
+					var (
+						from, until        = fromUntil(task.WithCron, c.Location)
+						nowAfterScheduling = time.Now().In(c.Location)
+					)
+
+					if (from.Before(until) && (nowAfterScheduling.Before(from) || nowAfterScheduling.After(until))) ||
+						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
+						fr := fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
+						nw := fmt.Sprintf("%02d:%02d", nowAfterScheduling.Hour(), nowAfterScheduling.Minute())
+						slog.Info("routine",
+							"provided time", fr,
+							"current time", nw,
+							"status", "waiting next window",
+							"next retry", "1 minute",
+						)
+						time.Sleep(time.Minute * 1)
+						continue
+					}
+					break restartCronTask
+				}
+			}
 		}
 	}
 
