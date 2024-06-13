@@ -91,6 +91,7 @@ func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, 
 
 func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, namespace string, deployment *v1.Deployment) {
 	desiredReplicas := int32(0)
+	currentReplicas := *deployment.Spec.Replicas
 
 	deployment.Spec.Replicas = &desiredReplicas
 	_, err := kuberneterActor.K8sClient.AppsV1().
@@ -102,7 +103,7 @@ func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, names
 	slog.Info("downscale was done successfully",
 		"name", deployment.Name,
 		"namespace", deployment.Name,
-		"old state replicas", *deployment.Spec.Replicas,
+		"old state replicas", currentReplicas,
 		"current state replicas", desiredReplicas,
 	)
 }
@@ -120,7 +121,12 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. downscaler name %s. err: %v", name, err)
 	}
-	slog.Info("watcher created successfully from downscaler", "name", name)
+	slog.Info("watcher",
+		"group", shared.Group,
+		"version", shared.Version,
+		"resource", shared.Resource,
+		"status", "created",
+	)
 	return watcher, nil
 }
 

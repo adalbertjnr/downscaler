@@ -155,15 +155,16 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 }
 
 func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
-	slog.Info("routine",
+	slog.Info("crontask routine",
 		"with namespace(s) task", task.Namespaces,
 		"with cron(s) task", task.WithCron,
 		"with recurrence", task.Recurrence,
+		"reason", "crontime created",
 		"status", "initializing",
 	)
 
 	defer func() {
-		slog.Info("routine",
+		slog.Info("crontask routine",
 			"with namespace(s) task", task.Namespaces,
 			"with cron(s) task", task.WithCron,
 			"with recurrence", task.Recurrence,
@@ -209,9 +210,9 @@ crontask:
 			if !nowBeforeScheduling.After(until) {
 				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
 				nw := fmt.Sprintf("%02d:%02d", nowBeforeScheduling.Hour(), nowBeforeScheduling.Minute())
-				slog.Info("routine",
-					"provided crontime", ut,
+				slog.Info("crontask routine",
 					"current time", nw,
+					"provided crontime", ut,
 					"namespace(s)", namespaces,
 					"next retry", "1 minute",
 				)
@@ -241,9 +242,10 @@ crontask:
 						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
 						fr := fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
 						nw := fmt.Sprintf("%02d:%02d", nowAfterScheduling.Hour(), nowAfterScheduling.Minute())
-						slog.Info("routine",
-							"provided time", fr,
+						slog.Info("crontask routine",
 							"current time", nw,
+							"provided time", fr,
+							"namespace(s)", namespaces,
 							"status", "waiting next window",
 							"next retry", "1 minute",
 						)
@@ -261,7 +263,8 @@ crontask:
 func (c *Cron) killCurrentCronRoutines() {
 	if len(c.taskRoutines) > 0 {
 		for key, stopch := range c.taskRoutines {
-			slog.Info("cleaning crontask map", "key", key, "reason", "crontime updated")
+			slog.Info("cleanup crontask map process",
+				"key", key, "reason", "crontime updated by the user")
 			delete(c.taskRoutines, key)
 			close(stopch)
 		}
