@@ -129,7 +129,7 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	return watcher, nil
 }
 
-func TriggerDownscaler(ctx context.Context,
+func InitDownscalingProcess(ctx context.Context,
 	k8sClient KubernetesHelper,
 	namespaces []string,
 	ignoredNamespaces map[string]struct{},
@@ -178,6 +178,7 @@ func triggerAnyOther(ctx context.Context,
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
 			)
+			continue
 		}
 
 		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
@@ -185,5 +186,4 @@ func triggerAnyOther(ctx context.Context,
 			k8sClient.Downscale(ctx, clusterNamespace, &deployment)
 		}
 	}
-
 }
