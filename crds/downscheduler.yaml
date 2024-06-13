@@ -13,13 +13,25 @@ spec:
           matchExpressions:
             key: namespace
             operator: exclude
-            values: ["ns1", "ns2", "ns3"]
+            values:
+            - "local-path-storage"
+            - "kube-system"
+            - "downscaler"
         withAdvancedNamespaceOpts:
           matchCriteria:
             criteria:
-              - namespaces: ["nginx-1", "nginx-2"]
-                withCron: "07:30-09:25"
-              - namespaces: ["nginx-3", "nginx-4"]
-                withCron: "07:30-09:26"
-              - namespaces: ["nginx-5"]
-                withCron: "07:30-09:27"
+              - namespaces: 
+                - "nginx-2"
+                withCron: "07:30-20:10"
+              - namespaces:
+                - "nginx-5"
+                withCron: "07:30-20:12"
+              - namespaces:
+                - "nginx-6"
+                withCron: "07:30-20:14"
+              - namespaces:
+                - "nginx-7"
+                withCron: "07:30-20:15"
+              - namespaces:
+                - "any-other"
+                withCron: "07:30-20:20"
