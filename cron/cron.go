@@ -118,7 +118,7 @@ func (c *Cron) parseCronConfig(
 func separatedScheduledNamespaces(criterias DownscalerCriteria) map[string]struct{} {
 	scheduledNamespaces := make([]string, 0)
 	for _, criteria := range criterias.Criteria {
-		scheduledNamespaces = append([]string{}, criteria.Namespaces...)
+		scheduledNamespaces = append(scheduledNamespaces, criteria.Namespaces...)
 		continue
 	}
 	return generateScheduledNamespaces(scheduledNamespaces)
@@ -238,7 +238,7 @@ crontask:
 				continue
 			}
 
-			k8sutil.TriggerDownscaler(ctx,
+			k8sutil.InitDownscalingProcess(ctx,
 				c.Kubernetes,
 				namespaces,
 				c.IgnoredNamespaces,

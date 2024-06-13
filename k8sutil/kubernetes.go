@@ -129,7 +129,7 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	return watcher, nil
 }
 
-func TriggerDownscaler(ctx context.Context,
+func InitDownscalingProcess(ctx context.Context,
 	k8sClient KubernetesHelper,
 	namespaces []string,
 	ignoredNamespaces map[string]struct{},
