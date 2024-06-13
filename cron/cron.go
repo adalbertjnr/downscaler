@@ -186,8 +186,8 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 			"with namespace(s) task", task.Namespaces,
 			"with cron(s) task", task.WithCron,
 			"with recurrence", task.Recurrence,
-			"status", "terminated",
 			"reason", "crontime updated",
+			"status", "terminated",
 		)
 	}()
 
@@ -228,7 +228,7 @@ crontask:
 			if !nowBeforeScheduling.After(until) {
 				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
 				nw := fmt.Sprintf("%02d:%02d", nowBeforeScheduling.Hour(), nowBeforeScheduling.Minute())
-				slog.Info("crontime",
+				slog.Info("routine",
 					"provided crontime", ut,
 					"current time", nw,
 					"namespace(s)", namespaces,
