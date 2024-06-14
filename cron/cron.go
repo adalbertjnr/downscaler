@@ -63,9 +63,13 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 		expression = downscalerData.Spec.ExecutionOpts.Time.Downscaler.DownscalerSelectorTerms.MatchExpressions
 		criteria   = downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithAdvancedNamespaceOpts.MatchCriteria.Criteria
 		recurrence = downscalerData.Spec.ExecutionOpts.Time.Recurrence
+		timezone   = downscalerData.Spec.ExecutionOpts.Time.TimeZone
 	)
 
 	c.updateRecurrenceIfEmpty(recurrence)
+	if err := c.updateTimeZoneIfNotEqual(timezone); err != nil {
+		return
+	}
 	c.parseCronConfig(
 		recurrence,
 		DownscalerExpression{MatchExpressions: expression},
@@ -208,8 +212,7 @@ crontask:
 			}
 
 			if !nowBeforeScheduling.After(until) {
-				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
-				nw := fmt.Sprintf("%02d:%02d", nowBeforeScheduling.Hour(), nowBeforeScheduling.Minute())
+				ut, nw := toStringWithFormat(until, nowBeforeScheduling)
 				slog.Info("crontask routine",
 					"current time", nw,
 					"provided crontime", ut,
@@ -221,8 +224,7 @@ crontask:
 				continue
 			}
 
-			k8sutil.InitDownscalingProcess(ctx,
-				c.Kubernetes,
+			c.Kubernetes.StartDownscaling(ctx,
 				namespaces,
 				c.IgnoredNamespaces,
 				task.CriteriaList,
@@ -241,8 +243,7 @@ crontask:
 
 					if (from.Before(until) && (nowAfterScheduling.Before(from) || nowAfterScheduling.After(until))) ||
 						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
-						fr := fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
-						nw := fmt.Sprintf("%02d:%02d", nowAfterScheduling.Hour(), nowAfterScheduling.Minute())
+						fr, nw := toStringWithFormat(from, nowAfterScheduling)
 						slog.Info("crontask routine",
 							"current time", nw,
 							"provided crontime", fr,
@@ -295,4 +296,25 @@ func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 	if c.Recurrence == "" {
 		c.Recurrence = recurrence
 	}
+}
+func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
+	if !strings.EqualFold(c.Location.String(), timezone) {
+		location, err := time.LoadLocation(timezone)
+		if err != nil {
+			slog.Error("received timezone from the config",
+				"former timezone", c.Location,
+				"replaced with", timezone,
+				"error", err,
+				"status", "failed",
+			)
+			return fmt.Errorf("not possible to load the location. err %v", err)
+		}
+		slog.Info("received timezone from the config",
+			"former timezone", c.Location,
+			"replaced with", timezone,
+			"status", "updated",
+		)
+		c.Location = location
+	}
+	return nil
 }
