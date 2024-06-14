@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -23,6 +24,12 @@ func generateScheduledNamespaces(scheduledNamespaces []string) map[string]struct
 		}
 	}
 	return scheduledNamespacesMap
+}
+
+func toStringWithFormat(from, now time.Time) (hourString, minuteString string) {
+	hourString = fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
+	minuteString = fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
+	return hourString, minuteString
 }
 
 func fromUntil(rawTime string, loc *time.Location) (from, until time.Time) {
