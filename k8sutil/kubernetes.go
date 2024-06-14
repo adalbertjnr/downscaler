@@ -22,6 +22,7 @@ type KubernetesHelper interface {
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
 	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
+	StartDownscaling(ctx context.Context, namespaces []string, ignoredNamespaces map[string]struct{}, scheduledNamespaces map[string]struct{})
 }
 
 type KubernetesHelperImpl struct {
@@ -131,13 +132,12 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	return watcher, nil
 }
 
-func InitDownscalingProcess(ctx context.Context,
-	k8sClient KubernetesHelper,
+func (kuberneterActor KubernetesHelperImpl) StartDownscaling(
+	ctx context.Context,
 	namespaces []string,
 	ignoredNamespaces map[string]struct{},
-	criteriaList map[string]struct{},
+	scheduledNamespaces map[string]struct{},
 ) {
-
 	for _, namespace := range namespaces {
 		if _, exists := ignoredNamespaces[namespace]; exists {
 			slog.Info("downscaling message",
@@ -148,19 +148,23 @@ func InitDownscalingProcess(ctx context.Context,
 		}
 
 		if namespace == shared.AnyOther {
-			go triggerAnyOther(ctx, k8sClient, criteriaList, ignoredNamespaces)
-			continue
+			startAnyOther(
+				ctx,
+				kuberneterActor,
+				scheduledNamespaces,
+				ignoredNamespaces,
+			)
+			return
 		}
 
-		deployments := k8sClient.GetDeployments(ctx, namespace)
+		deployments := kuberneterActor.GetDeployments(ctx, namespace)
 		for _, deployment := range deployments.Items {
-			k8sClient.DownscaleDeployments(ctx, namespace, &deployment)
+			kuberneterActor.DownscaleDeployments(ctx, namespace, &deployment)
 		}
 	}
-
 }
 
-func triggerAnyOther(ctx context.Context,
+func startAnyOther(ctx context.Context,
 	k8sClient KubernetesHelper,
 	scheduledNamespaces map[string]struct{},
 	ignoredNamespaces map[string]struct{},
