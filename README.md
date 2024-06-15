@@ -51,8 +51,13 @@ recurrence: "MON-FRI"
 <br>
 
 **key**: only namespace is available for now. It means it will works at namespace level for match deployments to downscale
-operator: only exclude is available for now. All namespaces under the list will be ignored during the downscaling scheduling
+**operator**: only exclude is available for now. All namespaces under the list will be ignored during the downscaling scheduling
 **values**: list of namespaces to be ignored during downscaling process, also it can override any namespace configured in the withAdvancedNamespaceOpts
+<br>
+
+> [!IMPORTANT]
+> if the downscaler namespace was not present here, it will be downscaled last
+
 ```yaml
 matchExpressions:
   key: namespace
@@ -65,17 +70,17 @@ matchExpressions:
 
 <br>
 
+
 **namespaces**: a list of namespaces that all deployments will be downscaled to zero
-withCron: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
+**withCron**: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
+
+> [!TIP]
+>  **any-other**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
 
 <br>
 
-**any-other**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
-
-<br>
-
-**even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod**
-
+> [!NOTE]
+> even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod
 
 ```yaml
 downscaleNamespacesWithTimeRules:
