@@ -93,25 +93,28 @@ downscaleNamespacesWithTimeRules:
       - "any-other"
       withCron: "01:30-14:56"
 ```
+<br>
+
+**create downscaler namespace**
+
+```
+kubectl create namespace downscaler
+```
 
 **apply the downscaler crd**
 ```
-kubectl apply -f crds/downscaler_crd.yaml
+kubectl apply -f deploy/crds/downscaler_crd.yaml
 ```
 
 **apply the rbac permissions to grant api access to downscaler**
 ```
-kubectl apply -f rbac/clusterrolebinding.yaml
-kubectl apply -f rbac/clusterrole.yaml
-kubectl apply -f rbac/serviceaccount.yaml
+kubectl apply -f deploy/rbac/rbac.yaml
 ```
 **apply the Downscaler kind with your needs**
 ```
-kubectl apply -f crds/downscaler_kind.yaml
+kubectl apply -f deploy/deployment/downscaler.yaml
 ```
 **apply the downscaler deployment itself**
 ```
-kubectl apply -f deployment/downscaler.yaml
+kubectl apply -f deploy/deployment/downscaler.yaml
 ```
-
-
