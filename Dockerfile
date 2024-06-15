@@ -22,4 +22,4 @@ USER alpineuser
 
 COPY --from=builder /app .
 
-ENTRYPOINT ["./app"]
+CMD ["./app"]
