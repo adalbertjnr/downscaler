@@ -1,6 +1,6 @@
 ## Downscaler
 
-Project for downscale kubernetes deployments with time criteria by namespaces
+Project for downscale kubernetes deployments with time rules by namespaces
 
 
 ```yaml
@@ -23,9 +23,9 @@ spec:
             - "local-path-storage"
             - "kube-system"
             - "downscaler"
-        withAdvancedNamespaceOpts:
-          downscaleNamespaceWithtimeCriteria:
-            matchCriteria:
+        withNamespaceOpts:
+          downscaleNamespacesWithTimeRules:
+            rules:
               - namespaces: 
                 - "nginx-2"
                 withCron: "01:30-14:50"
@@ -78,8 +78,8 @@ withCron: the provided time will be evaluated to downscale the deployments. For 
 
 
 ```yaml
-downscaleNamespacesWithTimeCriteria:
-  matchCriteria:
+downscaleNamespacesWithTimeRules:
+  rules:
     - namespaces: 
       - "nginx-2"
       withCron: "01:30-14:50"
