@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func separatedScheduledNamespaces(rules DownscalerCriteria) map[string]struct{} {
+func separatedScheduledNamespaces(rules DownscalerRules) map[string]struct{} {
 	scheduledNamespaces := make([]string, 0)
 	for _, criteria := range rules.Rules {
 		scheduledNamespaces = append(scheduledNamespaces, criteria.Namespaces...)

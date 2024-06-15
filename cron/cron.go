@@ -74,7 +74,7 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 	c.parseCronConfig(
 		recurrence,
 		DownscalerExpression{MatchExpressions: expression},
-		DownscalerCriteria{Rules: rules},
+		DownscalerRules{Rules: rules},
 	)
 
 }
@@ -82,7 +82,7 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 func (c *Cron) parseCronConfig(
 	recurrence string,
 	expression DownscalerExpression,
-	rules DownscalerCriteria,
+	rules DownscalerRules,
 ) {
 
 	if still := stillSameRecurrenceTime(
