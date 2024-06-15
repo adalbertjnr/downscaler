@@ -116,5 +116,5 @@ kubectl apply -f deploy/deployment/downscaler.yaml
 ```
 **apply the downscaler deployment itself**
 ```
-kubectl apply -f deploy/deployment/downscaler.yaml
+kubectl apply -f deploy/deployment/deployment.yaml
 ```
