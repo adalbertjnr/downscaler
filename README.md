@@ -79,9 +79,6 @@ matchExpressions:
 
 <br>
 
-> [!NOTE]
-> even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod
-
 ```yaml
 downscaleNamespacesWithTimeRules:
   rules:
@@ -98,6 +95,10 @@ downscaleNamespacesWithTimeRules:
       - "any-other"
       withCron: "01:30-14:56"
 ```
+
+> [!NOTE]
+> even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod
+
 <br>
 
 **create downscaler namespace**
