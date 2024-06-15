@@ -61,15 +61,20 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 
 	var (
 		expression = downscalerData.Spec.ExecutionOpts.Time.Downscaler.DownscalerSelectorTerms.MatchExpressions
-		criteria   = downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithAdvancedNamespaceOpts.MatchCriteria.Criteria
+		rules      = downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithNamespaceOpts.DownscaleNamespacesWithTimeRules.Rules
 		recurrence = downscalerData.Spec.ExecutionOpts.Time.Recurrence
+		timezone   = downscalerData.Spec.ExecutionOpts.Time.TimeZone
 	)
 
 	c.updateRecurrenceIfEmpty(recurrence)
+	if err := c.updateTimeZoneIfNotEqual(timezone); err != nil {
+		return
+	}
+
 	c.parseCronConfig(
 		recurrence,
 		DownscalerExpression{MatchExpressions: expression},
-		DownscalerCriteria{Criteria: criteria},
+		DownscalerRules{Rules: rules},
 	)
 
 }
@@ -77,7 +82,7 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 func (c *Cron) parseCronConfig(
 	recurrence string,
 	expression DownscalerExpression,
-	criteria DownscalerCriteria,
+	rules DownscalerRules,
 ) {
 
 	if still := stillSameRecurrenceTime(
@@ -96,11 +101,11 @@ func (c *Cron) parseCronConfig(
 		c.ignoredNamespacesCleanupValidation(ignoredNamespaces)
 	}
 
-	if criteria.available() {
-		tasks := make([]CronTask, len(criteria.Criteria))
+	if rules.available() {
+		tasks := make([]CronTask, len(rules.Rules))
 
-		scheduledNamespaces := separatedScheduledNamespaces(criteria)
-		for i, crit := range criteria.Criteria {
+		scheduledNamespaces := separatedScheduledNamespaces(rules)
+		for i, crit := range rules.Rules {
 			tasks[i] = CronTask{
 				Criteria: Criteria{
 					Namespaces:   crit.Namespaces,
@@ -113,25 +118,6 @@ func (c *Cron) parseCronConfig(
 		c.killCurrentCronRoutines()
 		c.taskch <- tasks
 	}
-}
-
-func separatedScheduledNamespaces(criterias DownscalerCriteria) map[string]struct{} {
-	scheduledNamespaces := make([]string, 0)
-	for _, criteria := range criterias.Criteria {
-		scheduledNamespaces = append(scheduledNamespaces, criteria.Namespaces...)
-		continue
-	}
-	return generateScheduledNamespaces(scheduledNamespaces)
-}
-
-func generateScheduledNamespaces(scheduledNamespaces []string) map[string]struct{} {
-	scheduledNamespacesMap := make(map[string]struct{}, len(scheduledNamespaces))
-	for _, namespace := range scheduledNamespaces {
-		if _, exists := scheduledNamespacesMap[namespace]; !exists {
-			scheduledNamespacesMap[namespace] = struct{}{}
-		}
-	}
-	return scheduledNamespacesMap
 }
 
 func (c *Cron) StartCron() {
@@ -174,15 +160,16 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 }
 
 func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
-	slog.Info("routine",
+	slog.Info("crontask routine",
 		"with namespace(s) task", task.Namespaces,
 		"with cron(s) task", task.WithCron,
 		"with recurrence", task.Recurrence,
+		"reason", "crontime created",
 		"status", "initializing",
 	)
 
 	defer func() {
-		slog.Info("routine",
+		slog.Info("crontask routine",
 			"with namespace(s) task", task.Namespaces,
 			"with cron(s) task", task.WithCron,
 			"with recurrence", task.Recurrence,
@@ -226,20 +213,19 @@ crontask:
 			}
 
 			if !nowBeforeScheduling.After(until) {
-				ut := fmt.Sprintf("%02d:%02d", until.Hour(), until.Minute())
-				nw := fmt.Sprintf("%02d:%02d", nowBeforeScheduling.Hour(), nowBeforeScheduling.Minute())
-				slog.Info("routine",
-					"provided crontime", ut,
+				ut, nw := toStringWithFormat(until, nowBeforeScheduling)
+				slog.Info("crontask routine",
 					"current time", nw,
+					"provided crontime", ut,
 					"namespace(s)", namespaces,
+					"status", "before downscaling",
 					"next retry", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
 				continue
 			}
 
-			k8sutil.InitDownscalingProcess(ctx,
-				c.Kubernetes,
+			c.Kubernetes.StartDownscaling(ctx,
 				namespaces,
 				c.IgnoredNamespaces,
 				task.CriteriaList,
@@ -258,12 +244,12 @@ crontask:
 
 					if (from.Before(until) && (nowAfterScheduling.Before(from) || nowAfterScheduling.After(until))) ||
 						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
-						fr := fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
-						nw := fmt.Sprintf("%02d:%02d", nowAfterScheduling.Hour(), nowAfterScheduling.Minute())
-						slog.Info("routine",
-							"provided time", fr,
+						fr, nw := toStringWithFormat(from, nowAfterScheduling)
+						slog.Info("crontask routine",
 							"current time", nw,
-							"status", "waiting next window",
+							"provided crontime", fr,
+							"namespace(s)", namespaces,
+							"status", "after downscaling",
 							"next retry", "1 minute",
 						)
 						time.Sleep(time.Minute * 1)
@@ -280,7 +266,8 @@ crontask:
 func (c *Cron) killCurrentCronRoutines() {
 	if len(c.taskRoutines) > 0 {
 		for key, stopch := range c.taskRoutines {
-			slog.Info("cleaning crontask map", "key", key, "reason", "crontime updated")
+			slog.Info("cleanup crontask map process",
+				"key", key, "reason", "crontime updated by the user")
 			delete(c.taskRoutines, key)
 			close(stopch)
 		}
@@ -306,89 +293,29 @@ func (c *Cron) isRecurrenceDay(day time.Weekday, recurrenceDays []time.Weekday) 
 	return false
 }
 
-func parseRecurrence(recurrence string) []time.Weekday {
-	days := map[string]time.Weekday{
-		"MON": time.Monday,
-		"TUE": time.Tuesday,
-		"WED": time.Wednesday,
-		"THU": time.Thursday,
-		"FRI": time.Friday,
-		"SAT": time.Saturday,
-		"SUN": time.Sunday,
-	}
-	recurrenceDays := []time.Weekday{}
-
-	for _, day := range strings.Split(recurrence, "-") {
-		if weekday, found := days[day]; found {
-			recurrenceDays = append(recurrenceDays, weekday)
-		}
-	}
-
-	if len(recurrenceDays) == 2 {
-		start, end := recurrenceDays[0], recurrenceDays[1]
-
-		if start < end {
-			for day := start + 1; day < end; day++ {
-				recurrenceDays = append(recurrenceDays, day)
-			}
-		} else {
-			for day := start + 1; day <= time.Saturday; day++ {
-				recurrenceDays = append(recurrenceDays, day)
-			}
-			for day := time.Sunday; day < end; day++ {
-				recurrenceDays = append(recurrenceDays, day)
-			}
-		}
-	}
-	return recurrenceDays
-}
-
 func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 	if c.Recurrence == "" {
 		c.Recurrence = recurrence
 	}
 }
-
-func fromUntil(rawTime string, loc *time.Location) (from, until time.Time) {
-	var err error
-	parts := strings.SplitN(rawTime, "-", ExpectedTimeParts)
-	if len(parts) != ExpectedTimeParts {
-		slog.Error("error parsing cron time", "time received", rawTime)
-		return
+func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
+	if !strings.EqualFold(c.Location.String(), timezone) {
+		location, err := time.LoadLocation(timezone)
+		if err != nil {
+			slog.Error("received timezone from the config",
+				"former timezone", c.Location,
+				"replaced with", timezone,
+				"error", err,
+				"status", "failed",
+			)
+			return fmt.Errorf("not possible to load the location. err %v", err)
+		}
+		slog.Info("received timezone from the config",
+			"former timezone", c.Location,
+			"replaced with", timezone,
+			"status", "updated",
+		)
+		c.Location = location
 	}
-	from, err = time.Parse(TimeFormat, parts[0])
-	if err != nil {
-		slog.Error("error parsing the time from", "time", parts[0])
-		return
-	}
-	until, err = time.Parse(TimeFormat, parts[1])
-	if err != nil {
-		slog.Error("error parsing the time until", "time", parts[1])
-		return
-	}
-
-	now := time.Now().In(loc)
-	from = time.Date(
-		now.Year(),
-		now.Month(),
-		now.Day(),
-		from.Hour(),
-		from.Minute(),
-		0,
-		0,
-		loc,
-	)
-
-	until = time.Date(
-		now.Year(),
-		now.Month(),
-		now.Day(),
-		until.Hour(),
-		until.Minute(),
-		0,
-		0,
-		loc,
-	)
-
-	return from, until
+	return nil
 }

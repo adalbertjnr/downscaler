@@ -31,14 +31,14 @@ type DownscalerPolicy struct {
 							Values   []string `yaml:"values"`
 						} `yaml:"matchExpressions"`
 					} `yaml:"downscalerSelectorTerms"`
-					WithAdvancedNamespaceOpts struct {
-						MatchCriteria struct {
-							Criteria []struct {
+					WithNamespaceOpts struct {
+						DownscaleNamespacesWithTimeRules struct {
+							Rules []struct {
 								Namespaces []string `yaml:"namespaces"`
 								WithCron   string   `yaml:"withCron"`
-							} `yaml:"criteria"`
-						} `yaml:"matchCriteria"`
-					} `yaml:"withAdvancedNamespaceOpts"`
+							} `yaml:"rules"`
+						} `yaml:"downscaleNamespacesWithTimeRules"`
+					} `yaml:"withNamespaceOpts"`
 				} `yaml:"downscaler"`
 			} `yaml:"time"`
 		} `yaml:"executionOpts"`

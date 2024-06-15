@@ -36,7 +36,8 @@ func (w *Watcher) DownscalerKind(
 			metadata.Namespace,
 		)
 		if err != nil {
-			slog.Error("error initializing a new configmap watcher", "next retry", "10 seconds", "error", err.Error())
+			slog.Error("error initializing a new configmap watcher",
+				"next retry", "10 seconds", "error", err)
 			time.Sleep(time.Second * 10)
 			continue
 		}
@@ -46,7 +47,8 @@ func (w *Watcher) DownscalerKind(
 			event, open := <-watcher.ResultChan()
 			if !open {
 				watcher.Stop()
-				slog.Warn("watcher closed", "reason", "recycling due to timeout seconds")
+				slog.Warn("watcher",
+					"status", "closed", "reason", "recycling due to timeout seconds")
 				break createNewWatcher
 			}
 			switch event.Type {
@@ -56,13 +58,14 @@ func (w *Watcher) DownscalerKind(
 				if err := helpers.UnmarshalDataPolicy(downscalerData, data); err != nil {
 					slog.Error("unmarshaling", "error unmarshaling in the watcher", err)
 				}
-				slog.Info("downscalercrd was updated",
+				slog.Info("watcher",
+					"message", "downscalercrd was updated",
 					"name", data.Metadata.Name,
 				)
 				w.RtObjectch <- event.Object
 			case watch.Error:
 				slog.Error("error updating the object",
-					"resource type", "downscalercrd",
+					"resource type", "Downscaler",
 				)
 			}
 		}

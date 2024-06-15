@@ -1,0 +1,35 @@
+apiVersion: scheduler.go/v1
+kind: Downscaler
+metadata:
+  name: downscaler
+  namespace: downscaler
+spec:
+  executionOpts:
+    time:
+      timeZone: "America/Recife"
+      recurrence: "MON-SAT"
+      downscaler:
+        downscalerSelectorTerms:
+          matchExpressions:
+            key: namespace
+            operator: exclude
+            values:
+            - "local-path-storage"
+            - "kube-system"
+            - "downscaler"
+        withNamespaceOpts:
+          downscaleNamespacesWithTimeRules:
+            rules:
+              - namespaces: 
+                - "nginx-2"
+                - "nginx-3"
+                withCron: "01:30-09:07"
+              - namespaces:
+                - "nginx-5"
+                withCron: "01:30-09:09"
+              - namespaces:
+                - "nginx-6"
+                withCron: "01:30-09:10"
+              - namespaces:
+                - "any-other"
+                withCron: "01:30-09:12"

@@ -20,8 +20,9 @@ type KubernetesHelper interface {
 	GetNamespaces(ctx context.Context) []string
 	GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
-	Downscale(ctx context.Context, namespace string, deployment *v1.Deployment)
+	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
+	StartDownscaling(ctx context.Context, namespaces []string, ignoredNamespaces map[string]struct{}, scheduledNamespaces map[string]struct{})
 }
 
 type KubernetesHelperImpl struct {
@@ -89,26 +90,26 @@ func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, 
 	return deployments
 }
 
-func (kuberneterActor KubernetesHelperImpl) Downscale(ctx context.Context, namespace string, deployment *v1.Deployment) {
+func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment) {
 	desiredReplicas := int32(0)
-	slog.Info("downscaling deployment",
-		"name", deployment.Name,
-		"namespace", deployment.Namespace,
-		"current replicas", *deployment.Spec.Replicas,
-		"desired replicas state", desiredReplicas,
-	)
+	currentReplicas := *deployment.Spec.Replicas
 
 	deployment.Spec.Replicas = &desiredReplicas
 	_, err := kuberneterActor.K8sClient.AppsV1().
 		Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
-		slog.Error("downscaling error", "deployment", deployment.Name, "error", err.Error())
+		slog.Error("downscaling error",
+			"deployment", deployment.Name,
+			"namespace", namespace,
+			"error", err)
 		return
 	}
-	slog.Info("downscale was done successfully",
+	slog.Info("downscaling message",
 		"name", deployment.Name,
-		"namespace", deployment.Name,
-		"current replicas", desiredReplicas,
+		"namespace", namespace,
+		"old state replicas", currentReplicas,
+		"current state replicas", desiredReplicas,
+		"status", "success",
 	)
 }
 
@@ -125,40 +126,48 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. downscaler name %s. err: %v", name, err)
 	}
-	slog.Info("watcher created successfully from downscaler", "name", name)
+	slog.Info("watcher",
+		"group", shared.Group,
+		"version", shared.Version,
+		"resource", shared.Resource,
+		"status", "created",
+	)
 	return watcher, nil
 }
 
-func InitDownscalingProcess(ctx context.Context,
-	k8sClient KubernetesHelper,
+func (kuberneterActor KubernetesHelperImpl) StartDownscaling(
+	ctx context.Context,
 	namespaces []string,
 	ignoredNamespaces map[string]struct{},
-	criteriaList map[string]struct{},
+	scheduledNamespaces map[string]struct{},
 ) {
-
 	for _, namespace := range namespaces {
 		if _, exists := ignoredNamespaces[namespace]; exists {
-			slog.Info("downscaling process",
-				"current namespace", namespace,
-				"status", "ignored",
+			slog.Info("downscaling message",
+				"ignoring namespace", namespace,
+				"reason", "already ignored from the config",
 			)
 			continue
 		}
 
 		if namespace == shared.AnyOther {
-			go triggerAnyOther(ctx, k8sClient, criteriaList, ignoredNamespaces)
-			continue
+			startAnyOther(
+				ctx,
+				kuberneterActor,
+				scheduledNamespaces,
+				ignoredNamespaces,
+			)
+			return
 		}
 
-		deployments := k8sClient.GetDeployments(ctx, namespace)
+		deployments := kuberneterActor.GetDeployments(ctx, namespace)
 		for _, deployment := range deployments.Items {
-			k8sClient.Downscale(ctx, namespace, &deployment)
+			kuberneterActor.DownscaleDeployments(ctx, namespace, &deployment)
 		}
 	}
-
 }
 
-func triggerAnyOther(ctx context.Context,
+func startAnyOther(ctx context.Context,
 	k8sClient KubernetesHelper,
 	scheduledNamespaces map[string]struct{},
 	ignoredNamespaces map[string]struct{},
@@ -168,13 +177,15 @@ func triggerAnyOther(ctx context.Context,
 	for _, clusterNamespace := range clusterNamespaces {
 
 		if _, exists := ignoredNamespaces[clusterNamespace]; exists {
-			slog.Info("triggering any-other",
-				"ignoring namespace", clusterNamespace)
+			slog.Info("downscaling message",
+				"ignoring namespace", clusterNamespace,
+				"reason", "already ignored from the config",
+			)
 			continue
 		}
 
 		if _, scheduled := scheduledNamespaces[clusterNamespace]; scheduled {
-			slog.Info("triggering any-other",
+			slog.Info("downscaling message",
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
 			)
@@ -183,7 +194,7 @@ func triggerAnyOther(ctx context.Context,
 
 		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
 		for _, deployment := range deployments.Items {
-			k8sClient.Downscale(ctx, clusterNamespace, &deployment)
+			k8sClient.DownscaleDeployments(ctx, clusterNamespace, &deployment)
 		}
 	}
 }

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: downscaler
+  name: downscaler
+  namespace: downscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: downscaler
+  template:
+    metadata:
+      labels:
+        app: downscaler
+    spec:
+      serviceAccount: downscaler-sa
+      containers:
+        - name: downscaler-ctn
+          image: adalbertjnr/downscaler:latest
+          imagePullPolicy: Always

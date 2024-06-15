@@ -48,13 +48,13 @@ spec:
                                     type: array
                                     items:
                                       type: string
-                          withAdvancedNamespaceOpts:
+                          withNamespaceOpts:
                             type: object
                             properties:
-                              matchCriteria:
+                              downscaleNamespacesWithTimeRules:
                                 type: object
                                 properties:
-                                  criteria:
+                                  rules:
                                     type: array
                                     items:
                                       type: object
