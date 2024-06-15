@@ -6,7 +6,7 @@ metadata:
 spec:
   executionOpts:
     time:
-      timeZone: "America/Recife"
+      timeZone: "America/Sao_Paulo"
       recurrence: "MON-SAT"
       downscaler:
         downscalerSelectorTerms:
@@ -22,14 +22,13 @@ spec:
             rules:
               - namespaces: 
                 - "nginx-2"
-                - "nginx-3"
-                withCron: "01:30-09:07"
+                withCron: "01:30-15:50"
               - namespaces:
                 - "nginx-5"
-                withCron: "01:30-09:09"
+                withCron: "01:30-15:51"
               - namespaces:
                 - "nginx-6"
-                withCron: "01:30-09:10"
+                withCron: "01:30-15:53"
               - namespaces:
                 - "any-other"
-                withCron: "01:30-09:12"
+                withCron: "01:30-15:57"

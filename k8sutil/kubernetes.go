@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/shared"
@@ -192,9 +193,30 @@ func startAnyOther(ctx context.Context,
 			continue
 		}
 
+		if strings.EqualFold(clusterNamespace, shared.DownscalerNamespace) {
+			slog.Info("downscaling message",
+				"the found namespace", clusterNamespace,
+				"match the downscaler namespace", shared.DownscalerNamespace,
+				"status", "not ignored during scheduling",
+				"action", "will be last downscaled namespace",
+			)
+			continue
+		}
+
 		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
 		for _, deployment := range deployments.Items {
 			k8sClient.DownscaleDeployments(ctx, clusterNamespace, &deployment)
 		}
+
 	}
+
+	if _, found := ignoredNamespaces[shared.DownscalerNamespace]; !found {
+		downscalerNamespaceDeploymentList := k8sClient.GetDeployments(ctx, shared.DownscalerNamespace)
+		if downscalerNamespaceDeploymentList != nil {
+			for _, deployment := range downscalerNamespaceDeploymentList.Items {
+				k8sClient.DownscaleDeployments(ctx, shared.DownscalerNamespace, &deployment)
+			}
+		}
+	}
+
 }
