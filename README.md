@@ -42,17 +42,17 @@ spec:
 
 ### Yaml breakdown
 
-**timeZone**: will be evaluated to match withCriteria in the withAdvancedNamesaceOpts
-**recurrence**: time window when the program will downscale the deployments
+- **timeZone**: will be evaluated to match withCriteria in the withAdvancedNamesaceOpts
+- **recurrence**: time window when the program will downscale the deployments
 ```yaml
 timeZone: "America/Sao_Paulo"
 recurrence: "MON-FRI"
 ```
 <br>
 
-**key**: only namespace is available for now. It means it will works at namespace level for match deployments to downscale
-**operator**: only exclude is available for now. All namespaces under the list will be ignored during the downscaling scheduling
-**values**: list of namespaces to be ignored during downscaling process, also it can override any namespace configured in the withAdvancedNamespaceOpts
+- **key**: only namespace is available for now. It means it will works at namespace level for match deployments to downscale
+- **operator**: only exclude is available for now. All namespaces under the list will be ignored during the downscaling scheduling
+- **values**: list of namespaces to be ignored during downscaling process, also it can override any namespace configured in the withAdvancedNamespaceOpts
 <br>
 
 > [!IMPORTANT]
@@ -71,8 +71,8 @@ matchExpressions:
 <br>
 
 
-**namespaces**: a list of namespaces that all deployments will be downscaled to zero
-**withCron**: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
+- **namespaces**: a list of namespaces that all deployments will be downscaled to zero
+- **withCron**: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
 
 > [!TIP]
 >  **any-other**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
