@@ -1,0 +1,67 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: downscalers.scheduler.go
+spec:
+  group: scheduler.go
+  names:
+    kind: Downscaler
+    plural: downscalers
+    singular: downscaler
+    shortNames: ["ds"]
+  scope: Cluster
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+           spec:
+            type: object
+            properties:
+              executionOpts:
+                type: object
+                properties:
+                  time:
+                    type: object
+                    properties:
+                      timeZone:
+                        type: string
+                      recurrence:
+                        type: string
+                      downscaler:
+                        type: object
+                        properties:
+                          downscalerSelectorTerms:
+                            type: object
+                            properties:
+                              matchExpressions:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    type: array
+                                    items:
+                                      type: string
+                          withNamespaceOpts:
+                            type: object
+                            properties:
+                              downscaleNamespacesWithTimeRules:
+                                type: object
+                                properties:
+                                  rules:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        namespaces:
+                                          type: array
+                                          items:
+                                            type: string
+                                        withCron: 
+                                          type: string

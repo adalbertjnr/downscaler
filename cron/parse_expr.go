@@ -37,12 +37,12 @@ func (v *DownscalerExpression) showIgnoredNamespaces(ignoredNamespaces []string)
 }
 
 type DownscalerCriteria struct {
-	Criteria []struct {
+	Rules []struct {
 		Namespaces []string `yaml:"namespaces"`
 		WithCron   string   `yaml:"withCron"`
-	} `yaml:"criteria"`
+	} `yaml:"rules"`
 }
 
 func (v *DownscalerCriteria) available() bool {
-	return len(v.Criteria) > 0
+	return len(v.Rules) > 0
 }

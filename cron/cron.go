@@ -61,7 +61,7 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 
 	var (
 		expression = downscalerData.Spec.ExecutionOpts.Time.Downscaler.DownscalerSelectorTerms.MatchExpressions
-		criteria   = downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithAdvancedNamespaceOpts.MatchCriteria.Criteria
+		rules      = downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithNamespaceOpts.DownscaleNamespacesWithTimeRules.Rules
 		recurrence = downscalerData.Spec.ExecutionOpts.Time.Recurrence
 		timezone   = downscalerData.Spec.ExecutionOpts.Time.TimeZone
 	)
@@ -70,10 +70,11 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 	if err := c.updateTimeZoneIfNotEqual(timezone); err != nil {
 		return
 	}
+
 	c.parseCronConfig(
 		recurrence,
 		DownscalerExpression{MatchExpressions: expression},
-		DownscalerCriteria{Criteria: criteria},
+		DownscalerCriteria{Rules: rules},
 	)
 
 }
@@ -81,7 +82,7 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 func (c *Cron) parseCronConfig(
 	recurrence string,
 	expression DownscalerExpression,
-	criteria DownscalerCriteria,
+	rules DownscalerCriteria,
 ) {
 
 	if still := stillSameRecurrenceTime(
@@ -100,11 +101,11 @@ func (c *Cron) parseCronConfig(
 		c.ignoredNamespacesCleanupValidation(ignoredNamespaces)
 	}
 
-	if criteria.available() {
-		tasks := make([]CronTask, len(criteria.Criteria))
+	if rules.available() {
+		tasks := make([]CronTask, len(rules.Rules))
 
-		scheduledNamespaces := separatedScheduledNamespaces(criteria)
-		for i, crit := range criteria.Criteria {
+		scheduledNamespaces := separatedScheduledNamespaces(rules)
+		for i, crit := range rules.Rules {
 			tasks[i] = CronTask{
 				Criteria: Criteria{
 					Namespaces:   crit.Namespaces,
