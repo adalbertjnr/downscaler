@@ -98,12 +98,15 @@ func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Con
 	_, err := kuberneterActor.K8sClient.AppsV1().
 		Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
-		slog.Error("downscaling error", "deployment", deployment.Name, "error", err.Error())
+		slog.Error("downscaling error",
+			"deployment", deployment.Name,
+			"namespace", namespace,
+			"error", err)
 		return
 	}
-	slog.Info("downscaling",
+	slog.Info("downscaling message",
 		"name", deployment.Name,
-		"namespace", deployment.Name,
+		"namespace", namespace,
 		"old state replicas", currentReplicas,
 		"current state replicas", desiredReplicas,
 		"status", "success",
