@@ -52,7 +52,7 @@ recurrence: "MON-FRI"
 
 - **key**: only namespace is available for now. It means it will works at namespace level for match deployments to downscale
 - **operator**: only exclude is available for now. All namespaces under the list will be ignored during the downscaling scheduling
-- **values**: list of namespaces to be ignored during downscaling process, also it can override any namespace configured in the withAdvancedNamespaceOpts
+- **values**: list of namespaces to be ignored during downscaling process, also it can override any namespace configured in the withNamespaceOpts.downscaleNamespacesWithTimeRules
 <br>
 
 > [!IMPORTANT]
@@ -84,6 +84,7 @@ downscaleNamespacesWithTimeRules:
   rules:
     - namespaces: 
       - "nginx-2"
+      - "nginx-3"
       withCron: "01:30-14:50"
     - namespaces:
       - "nginx-5"
