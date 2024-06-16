@@ -16,15 +16,15 @@ const (
 	TimeFormat        = "15:04"
 )
 
-type Criteria struct {
-	Namespaces   []string
-	WithCron     string
-	Recurrence   string
-	CriteriaList map[string]struct{}
+type Rules struct {
+	Namespaces          []string
+	WithCron            string
+	Recurrence          string
+	ScheduledNamespaces map[string]struct{}
 }
 
 type CronTask struct {
-	Criteria
+	Rules
 }
 
 type Cron struct {
@@ -85,10 +85,7 @@ func (c *Cron) parseCronConfig(
 	rules DownscalerRules,
 ) {
 
-	if still := stillSameRecurrenceTime(
-		recurrence,
-		c.Recurrence,
-	); !still {
+	if !stillSameRecurrenceTime(recurrence, c.Recurrence) {
 		c.Recurrence = recurrence
 		slog.Info("cron recurrence received", "recurrence", c.Recurrence)
 	}
@@ -107,11 +104,11 @@ func (c *Cron) parseCronConfig(
 		scheduledNamespaces := separatedScheduledNamespaces(rules)
 		for i, crit := range rules.Rules {
 			tasks[i] = CronTask{
-				Criteria: Criteria{
-					Namespaces:   crit.Namespaces,
-					WithCron:     crit.WithCron,
-					Recurrence:   c.Recurrence,
-					CriteriaList: scheduledNamespaces,
+				Rules: Rules{
+					Namespaces:          crit.Namespaces,
+					WithCron:            crit.WithCron,
+					Recurrence:          c.Recurrence,
+					ScheduledNamespaces: scheduledNamespaces,
 				},
 			}
 		}
@@ -138,7 +135,7 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 	newTaskMap := make(map[string]CronTask)
 
 	for _, task := range tasks {
-		key := task.Criteria.WithCron + strings.Join(task.Namespaces, ",")
+		key := task.Rules.WithCron + strings.Join(task.Namespaces, ",")
 		newTaskMap[key] = task
 
 		if _, exists := c.taskRoutines[key]; !exists {
@@ -228,7 +225,7 @@ crontask:
 			c.Kubernetes.StartDownscaling(ctx,
 				namespaces,
 				c.IgnoredNamespaces,
-				task.CriteriaList,
+				task.ScheduledNamespaces,
 			)
 
 		restartCronTask:
