@@ -45,3 +45,8 @@ type DownscalerPolicy struct {
 		} `yaml:"executionOpts"`
 	} `yaml:"spec"`
 }
+
+type NotUsableNamespacesDuringScheduling struct {
+	IgnoredNamespaces   map[string]struct{}
+	ScheduledNamespaces map[string]struct{}
+}

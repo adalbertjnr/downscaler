@@ -9,24 +9,29 @@ import (
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/shared"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
-type KubernetesHelper interface {
+type Kubernetes interface {
 	GetNamespaces(ctx context.Context) []string
 	GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
 	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
-	StartDownscaling(ctx context.Context, namespaces []string, ignoredNamespaces map[string]struct{}, scheduledNamespaces map[string]struct{})
+	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling)
+	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
+	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
+	CreateConfigMap(ctx context.Context, name, namespace string)
 }
 
-type KubernetesHelperImpl struct {
+type KubernetesImpl struct {
 	K8sClient     *kubernetes.Clientset
 	DynamicClient *dynamic.DynamicClient
 }
@@ -34,18 +39,72 @@ type KubernetesHelperImpl struct {
 func NewKubernetesHelper(
 	client *kubernetes.Clientset,
 	dynamicClient *dynamic.DynamicClient,
-) *KubernetesHelperImpl {
-	return &KubernetesHelperImpl{
+) *KubernetesImpl {
+	return &KubernetesImpl{
 		K8sClient:     client,
 		DynamicClient: dynamicClient,
 	}
 }
 
-func (kuberneterActor KubernetesHelperImpl) GetDownscalerData(
-	ctx context.Context,
-	gv schema.GroupVersionResource,
-) (*shared.DownscalerPolicy, error) {
-	list, err := kuberneterActor.DynamicClient.Resource(gv).Namespace("").List(ctx, metav1.ListOptions{
+func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace string) {
+	create := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"deployments.yaml": "",
+			"time.yaml":        "",
+		},
+	}
+
+	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Create(ctx, create, metav1.CreateOptions{})
+	if err != nil {
+		slog.Error("error", "not able to create configmap", "name", name, "namespace", namespace, "reason", err)
+		return
+	}
+
+	slog.Info("configmap created", "name", name, "namespace", namespace)
+}
+
+func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap {
+	cm, err := k.K8sClient.CoreV1().
+		ConfigMaps(namespace).
+		List(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+
+	if err != nil {
+		slog.Error("configmap error",
+			"not possible to get configmap", name,
+			"namespace", namespace,
+		)
+	}
+
+	if len(cm.Items) > 0 {
+		slog.Info("configmap message",
+			"retrieved config map", name,
+			"namespace", namespace,
+		)
+
+		return &cm.Items[0]
+	}
+
+	return nil
+}
+
+func (k KubernetesImpl) PatchConfigMap(ctx context.Context, name, namespace string, patch []byte) {
+	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		slog.Error("configmap error",
+			"not possible to update configmap", name,
+			"namespace", namespace,
+		)
+	}
+
+	slog.Info("configmap updated", "name", name, "namespace", namespace)
+}
+
+func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error) {
+	list, err := k.DynamicClient.Resource(gv).Namespace("").List(ctx, metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", "downscaler").String(),
 	})
 	if err != nil {
@@ -62,11 +121,9 @@ func (kuberneterActor KubernetesHelperImpl) GetDownscalerData(
 	return data, nil
 }
 
-func (kuberneterActor KubernetesHelperImpl) GetNamespaces(ctx context.Context) []string {
+func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
 	var namespacesNames []string
-	namespaces, err := kuberneterActor.K8sClient.CoreV1().
-		Namespaces().
-		List(ctx, metav1.ListOptions{})
+	namespaces, err := k.K8sClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		slog.Error("listing namespaces", "error", err)
@@ -80,10 +137,9 @@ func (kuberneterActor KubernetesHelperImpl) GetNamespaces(ctx context.Context) [
 	return namespacesNames
 }
 
-func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList {
-	deployments, err := kuberneterActor.K8sClient.AppsV1().
-		Deployments(namespace).
-		List(ctx, metav1.ListOptions{})
+func (k KubernetesImpl) GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList {
+	deployments, err := k.K8sClient.AppsV1().
+		Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		slog.Error("get deployments error", "namespace", namespace, "error", err)
 		return nil
@@ -91,13 +147,12 @@ func (kuberneterActor KubernetesHelperImpl) GetDeployments(ctx context.Context, 
 	return deployments
 }
 
-func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment) {
+func (k KubernetesImpl) DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment) {
 	desiredReplicas := int32(0)
 	currentReplicas := *deployment.Spec.Replicas
 
 	deployment.Spec.Replicas = &desiredReplicas
-	_, err := kuberneterActor.K8sClient.AppsV1().
-		Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	_, err := k.K8sClient.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
 		slog.Error("downscaling error",
 			"deployment", deployment.Name,
@@ -114,9 +169,9 @@ func (kuberneterActor KubernetesHelperImpl) DownscaleDeployments(ctx context.Con
 	)
 }
 
-func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error) {
+func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error) {
 	timeout := int64(3600)
-	watcher, err := kubernetesActor.DynamicClient.Resource(schema.GroupVersionResource{
+	watcher, err := k.DynamicClient.Resource(schema.GroupVersionResource{
 		Group:    shared.Group,
 		Version:  shared.Version,
 		Resource: shared.Resource,
@@ -136,14 +191,11 @@ func (kubernetesActor KubernetesHelperImpl) GetWatcherByDownscalerCRD(ctx contex
 	return watcher, nil
 }
 
-func (kuberneterActor KubernetesHelperImpl) StartDownscaling(
-	ctx context.Context,
-	namespaces []string,
-	ignoredNamespaces map[string]struct{},
-	scheduledNamespaces map[string]struct{},
+func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling,
 ) {
+
 	for _, namespace := range namespaces {
-		if _, exists := ignoredNamespaces[namespace]; exists {
+		if _, exists := is.IgnoredNamespaces[namespace]; exists {
 			slog.Info("downscaling message",
 				"ignoring namespace", namespace,
 				"reason", "already ignored from the config",
@@ -152,32 +204,22 @@ func (kuberneterActor KubernetesHelperImpl) StartDownscaling(
 		}
 
 		if namespace == shared.AnyOther {
-			startAnyOther(
-				ctx,
-				kuberneterActor,
-				scheduledNamespaces,
-				ignoredNamespaces,
-			)
+			startAnyOther(ctx, k, is)
 			return
 		}
 
-		deployments := kuberneterActor.GetDeployments(ctx, namespace)
+		deployments := k.GetDeployments(ctx, namespace)
 		for _, deployment := range deployments.Items {
-			kuberneterActor.DownscaleDeployments(ctx, namespace, &deployment)
+			k.DownscaleDeployments(ctx, namespace, &deployment)
 		}
 	}
 }
 
-func startAnyOther(ctx context.Context,
-	k8sClient KubernetesHelper,
-	scheduledNamespaces map[string]struct{},
-	ignoredNamespaces map[string]struct{},
-) {
-
+func startAnyOther(ctx context.Context, k8sClient Kubernetes, is shared.NotUsableNamespacesDuringScheduling) {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
 
-		if _, exists := ignoredNamespaces[clusterNamespace]; exists {
+		if _, exists := is.IgnoredNamespaces[clusterNamespace]; exists {
 			slog.Info("downscaling message",
 				"ignoring namespace", clusterNamespace,
 				"reason", "already ignored from the config",
@@ -185,7 +227,7 @@ func startAnyOther(ctx context.Context,
 			continue
 		}
 
-		if _, scheduled := scheduledNamespaces[clusterNamespace]; scheduled {
+		if _, scheduled := is.ScheduledNamespaces[clusterNamespace]; scheduled {
 			slog.Info("downscaling message",
 				"ignoring namespace", clusterNamespace,
 				"reason", "already scheduled by another routine",
@@ -210,7 +252,7 @@ func startAnyOther(ctx context.Context,
 
 	}
 
-	if _, found := ignoredNamespaces[shared.DownscalerNamespace]; !found {
+	if _, found := is.IgnoredNamespaces[shared.DownscalerNamespace]; !found {
 		downscalerNamespaceDeploymentList := k8sClient.GetDeployments(ctx, shared.DownscalerNamespace)
 		if downscalerNamespaceDeploymentList != nil {
 			for _, deployment := range downscalerNamespaceDeploymentList.Items {

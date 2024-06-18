@@ -28,7 +28,7 @@ type CronTask struct {
 }
 
 type Cron struct {
-	Kubernetes        k8sutil.KubernetesHelper
+	Kubernetes        k8sutil.Kubernetes
 	Location          *time.Location
 	Tasks             []CronTask
 	IgnoredNamespaces map[string]struct{}
@@ -46,7 +46,7 @@ func NewCron() *Cron {
 	}
 }
 
-func (c *Cron) AddKubeApiSvc(client k8sutil.KubernetesHelper) *Cron {
+func (c *Cron) AddKubeApiSvc(client k8sutil.Kubernetes) *Cron {
 	c.Kubernetes = client
 	return c
 }
@@ -222,11 +222,10 @@ crontask:
 				continue
 			}
 
-			c.Kubernetes.StartDownscaling(ctx,
-				namespaces,
-				c.IgnoredNamespaces,
-				task.ScheduledNamespaces,
-			)
+			c.Kubernetes.StartDownscaling(ctx, namespaces, shared.NotUsableNamespacesDuringScheduling{
+				IgnoredNamespaces:   c.IgnoredNamespaces,
+				ScheduledNamespaces: task.ScheduledNamespaces,
+			})
 
 		restartCronTask:
 			for {

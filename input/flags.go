@@ -2,20 +2,16 @@ package input
 
 import (
 	"flag"
-	"log/slog"
-	"os"
 )
 
 type FromFlags struct {
-	InitialCmConfig string
+	ConfigMapName      string
+	ConfigMapNamespace string
 }
 
 func Flags() *FromFlags {
-	InitialCmPath := flag.String("configmap_name", "", "set the configmap name")
+	configMapName := flag.String("configmap_name", "downscaler-cm", "set the configmap name")
+	configMapNamespace := flag.String("configmap_namespace", "downscaler", "set the configmap namespace")
 	flag.Parse()
-	if *InitialCmPath == "" {
-		slog.Error("validate deployment args", "error", "missing configmap name")
-		os.Exit(1)
-	}
-	return &FromFlags{InitialCmConfig: *InitialCmPath}
+	return &FromFlags{ConfigMapName: *configMapName, ConfigMapNamespace: *configMapNamespace}
 }

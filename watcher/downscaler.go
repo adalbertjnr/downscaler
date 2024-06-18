@@ -26,7 +26,7 @@ func New() *Watcher {
 func (w *Watcher) DownscalerKind(
 	ctx context.Context,
 	metadata shared.Metadata,
-	client k8sutil.KubernetesHelper,
+	client k8sutil.Kubernetes,
 ) {
 
 	for {

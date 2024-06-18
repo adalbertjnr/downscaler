@@ -18,7 +18,7 @@ import (
 )
 
 type Controller struct {
-	client            k8sutil.KubernetesHelper
+	client            k8sutil.Kubernetes
 	cron              cron.Cron
 	rtObjectch        chan runtime.Object
 	cmObjectch        chan shared.DownscalerPolicy
@@ -29,7 +29,7 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context,
-	client k8sutil.KubernetesHelper,
+	client k8sutil.Kubernetes,
 	cron *cron.Cron,
 	initialCronConfig *shared.DownscalerPolicy,
 	watch *watcher.Watcher,
