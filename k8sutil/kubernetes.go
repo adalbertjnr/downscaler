@@ -1,4 +1,4 @@
-package k8sutil
+package k8s
 
 import (
 	"context"
@@ -28,7 +28,7 @@ type Kubernetes interface {
 	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling)
 	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
 	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
-	CreateConfigMap(ctx context.Context, name, namespace string)
+	CreateConfigMap(ctx context.Context, name, namespace string) error
 }
 
 type KubernetesImpl struct {
@@ -36,17 +36,14 @@ type KubernetesImpl struct {
 	DynamicClient *dynamic.DynamicClient
 }
 
-func NewKubernetesHelper(
-	client *kubernetes.Clientset,
-	dynamicClient *dynamic.DynamicClient,
-) *KubernetesImpl {
+func NewKubernetes(client *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient) *KubernetesImpl {
 	return &KubernetesImpl{
 		K8sClient:     client,
 		DynamicClient: dynamicClient,
 	}
 }
 
-func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace string) {
+func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace string) error {
 	create := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -61,16 +58,18 @@ func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace str
 	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Create(ctx, create, metav1.CreateOptions{})
 	if err != nil {
 		slog.Error("error", "not able to create configmap", "name", name, "namespace", namespace, "reason", err)
-		return
+		return err
 	}
 
 	slog.Info("configmap created", "name", name, "namespace", namespace)
+	return nil
 }
 
 func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap {
-	cm, err := k.K8sClient.CoreV1().
-		ConfigMaps(namespace).
-		List(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	cm, err := k.K8sClient.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
+	},
+	)
 
 	if err != nil {
 		slog.Error("configmap error",
@@ -122,7 +121,6 @@ func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVe
 }
 
 func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
-	var namespacesNames []string
 	namespaces, err := k.K8sClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 
 	if err != nil {
@@ -130,6 +128,7 @@ func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
 		return nil
 	}
 
+	namespacesNames := []string{}
 	for _, namespace := range namespaces.Items {
 		namespacesNames = append(namespacesNames, namespace.Name)
 	}
@@ -138,8 +137,7 @@ func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
 }
 
 func (k KubernetesImpl) GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList {
-	deployments, err := k.K8sClient.AppsV1().
-		Deployments(namespace).List(ctx, metav1.ListOptions{})
+	deployments, err := k.K8sClient.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		slog.Error("get deployments error", "namespace", namespace, "error", err)
 		return nil
@@ -203,8 +201,8 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 			continue
 		}
 
-		if namespace == shared.AnyOther {
-			startAnyOther(ctx, k, is)
+		if namespace == shared.SpecialAnyOtherFlag {
+			invokeSpecialAnyOtherFlag(ctx, k, is)
 			return
 		}
 
@@ -215,7 +213,7 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 	}
 }
 
-func startAnyOther(ctx context.Context, k8sClient Kubernetes, is shared.NotUsableNamespacesDuringScheduling) {
+func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, is shared.NotUsableNamespacesDuringScheduling) {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
 

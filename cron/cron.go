@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adalbertjnr/downscaler/k8sutil"
+	k8s "github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/shared"
 )
 
@@ -28,7 +28,7 @@ type CronTask struct {
 }
 
 type Cron struct {
-	Kubernetes        k8sutil.Kubernetes
+	Kubernetes        k8s.Kubernetes
 	Location          *time.Location
 	Tasks             []CronTask
 	IgnoredNamespaces map[string]struct{}
@@ -46,7 +46,7 @@ func NewCron() *Cron {
 	}
 }
 
-func (c *Cron) AddKubeApiSvc(client k8sutil.Kubernetes) *Cron {
+func (c *Cron) AddKubeApiSvc(client k8s.Kubernetes) *Cron {
 	c.Kubernetes = client
 	return c
 }
@@ -144,11 +144,8 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 			c.taskRoutines[key] = stopch
 
 			go c.runTasks(task, stopch)
-			slog.Info("changes detected in crontime",
-				"action", "triggering task routine",
-				"recurrence", task.Recurrence,
-				"namespaces", task.Namespaces,
-				"crontime", task.WithCron,
+			slog.Info("changes detected in crontime", "action", "triggering task routine",
+				"recurrence", task.Recurrence, "namespaces", task.Namespaces, "crontime", task.WithCron,
 			)
 		} else {
 			slog.Info("no changes detected in cron time", "action", "ignoring")
@@ -157,21 +154,13 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 }
 
 func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
-	slog.Info("crontask routine",
-		"with namespace(s) task", task.Namespaces,
-		"with cron(s) task", task.WithCron,
-		"with recurrence", task.Recurrence,
-		"reason", "crontime created",
-		"status", "initializing",
+	slog.Info("crontask routine", "with namespace(s) task", task.Namespaces, "with cron(s) task", task.WithCron,
+		"with recurrence", task.Recurrence, "reason", "crontime created", "status", "initializing",
 	)
 
 	defer func() {
-		slog.Info("crontask routine",
-			"with namespace(s) task", task.Namespaces,
-			"with cron(s) task", task.WithCron,
-			"with recurrence", task.Recurrence,
-			"reason", "crontime updated",
-			"status", "terminated",
+		slog.Info("crontask routine", "with namespace(s) task", task.Namespaces, "with cron(s) task", task.WithCron,
+			"with recurrence", task.Recurrence, "reason", "crontime updated", "status", "terminated",
 		)
 	}()
 
@@ -188,22 +177,16 @@ crontask:
 		case <-stopch:
 			break crontask
 		default:
-			var (
-				_, until            = fromUntil(task.WithCron, c.Location)
-				nowBeforeScheduling = time.Now().In(c.Location)
-			)
+			_, until := fromUntil(task.WithCron, c.Location)
+			nowBeforeScheduling := time.Now().In(c.Location)
 
 			if !c.isRecurrenceDay(nowBeforeScheduling.Weekday(), recurrenceDays) {
-				slog.Info("time",
-					"today is", nowBeforeScheduling.Weekday().String(),
-					"recurrence days range", recurrenceDays,
-					"action", "waiting",
-					"next try", "1 minute",
+				slog.Info("time", "today is", nowBeforeScheduling.Weekday().String(), "recurrence days range", recurrenceDays,
+					"action", "waiting", "next try", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
 				continue
 			}
-
 			if valid := c.validateCronNamespaces(ctx, namespaces); !valid {
 				time.Sleep(time.Minute * 1)
 				continue
@@ -211,21 +194,19 @@ crontask:
 
 			if !nowBeforeScheduling.After(until) {
 				ut, nw := toStringWithFormat(until, nowBeforeScheduling)
-				slog.Info("crontask routine",
-					"current time", nw,
-					"provided crontime", ut,
-					"namespace(s)", namespaces,
-					"status", "before downscaling",
-					"next retry", "1 minute",
+				slog.Info("crontask routine", "current time", nw, "provided crontime", ut,
+					"namespace(s)", namespaces, "status", "before downscaling", "next retry", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
 				continue
 			}
 
-			c.Kubernetes.StartDownscaling(ctx, namespaces, shared.NotUsableNamespacesDuringScheduling{
+			notUsableNamespaces := shared.NotUsableNamespacesDuringScheduling{
 				IgnoredNamespaces:   c.IgnoredNamespaces,
 				ScheduledNamespaces: task.ScheduledNamespaces,
-			})
+			}
+
+			c.Kubernetes.StartDownscaling(ctx, namespaces, notUsableNamespaces)
 
 		restartCronTask:
 			for {
@@ -233,20 +214,14 @@ crontask:
 				case <-stopch:
 					break crontask
 				default:
-					var (
-						from, until        = fromUntil(task.WithCron, c.Location)
-						nowAfterScheduling = time.Now().In(c.Location)
-					)
+					from, until := fromUntil(task.WithCron, c.Location)
+					nowAfterScheduling := time.Now().In(c.Location)
 
 					if (from.Before(until) && (nowAfterScheduling.Before(from) || nowAfterScheduling.After(until))) ||
 						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
 						fr, nw := toStringWithFormat(from, nowAfterScheduling)
-						slog.Info("crontask routine",
-							"current time", nw,
-							"provided crontime", fr,
-							"namespace(s)", namespaces,
-							"status", "after downscaling",
-							"next retry", "1 minute",
+						slog.Info("crontask routine", "current time", nw, "provided crontime", fr,
+							"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
 						)
 						time.Sleep(time.Minute * 1)
 						continue
@@ -298,18 +273,13 @@ func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
 	if !strings.EqualFold(c.Location.String(), timezone) {
 		location, err := time.LoadLocation(timezone)
 		if err != nil {
-			slog.Error("received timezone from the config",
-				"former timezone", c.Location,
-				"replaced with", timezone,
-				"error", err,
-				"status", "failed",
+			slog.Error("received timezone from the config", "former timezone", c.Location,
+				"replaced with", timezone, "error", err, "status", "failed",
 			)
 			return fmt.Errorf("not possible to load the location. err %v", err)
 		}
-		slog.Info("received timezone from the config",
-			"former timezone", c.Location,
-			"replaced with", timezone,
-			"status", "updated",
+		slog.Info("received timezone from the config", "former timezone", c.Location,
+			"replaced with", timezone, "status", "updated",
 		)
 		c.Location = location
 	}

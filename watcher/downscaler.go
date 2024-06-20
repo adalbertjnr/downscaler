@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/adalbertjnr/downscaler/helpers"
-	"github.com/adalbertjnr/downscaler/k8sutil"
+	k8s "github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/shared"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +26,7 @@ func New() *Watcher {
 func (w *Watcher) DownscalerKind(
 	ctx context.Context,
 	metadata shared.Metadata,
-	client k8sutil.Kubernetes,
+	client k8s.Kubernetes,
 ) {
 
 	for {

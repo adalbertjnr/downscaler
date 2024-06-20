@@ -6,7 +6,8 @@ import (
 	"github.com/adalbertjnr/downscaler/core"
 	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/helpers"
-	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/input"
+	k8s "github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/kubeclient"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
@@ -14,6 +15,8 @@ import (
 )
 
 func main() {
+	args := input.FromEntrypoint()
+
 	client, err := kubeclient.NewClientOrDie()
 	if err != nil {
 		panic(err)
@@ -32,7 +35,7 @@ func main() {
 		Group:    shared.Group,
 	}
 
-	kubeApiSvc := k8sutil.NewKubernetesHelper(client, dynamicClient)
+	kubeApiSvc := k8s.NewKubernetes(client, dynamicClient)
 
 	policyData, err := kubeApiSvc.GetDownscalerData(ctx, scm)
 	if err != nil {
@@ -57,9 +60,11 @@ func main() {
 		cronSvc,
 		policyData,
 		watch,
+		args,
 	)
 
 	go svc.HandleSignals()
 
+	svc.ValidateConfigMapInitialization()
 	svc.StartDownscaler()
 }

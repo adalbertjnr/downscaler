@@ -5,7 +5,7 @@ const (
 	Resource = "downscalers"
 	Group    = "scheduler.go"
 
-	AnyOther            = "any-other"
+	SpecialAnyOtherFlag = "any-other"
 	DownscalerNamespace = "downscaler"
 )
 
