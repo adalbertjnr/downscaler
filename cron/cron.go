@@ -165,12 +165,12 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 	}()
 
 	var (
-		namespaces = task.Namespaces
-		recurrence = task.Recurrence
-		ctx        = context.Background()
+		ctx            = context.Background()
+		namespaces     = task.Namespaces
+		recurrence     = task.Recurrence
+		recurrenceDays = parseRecurrence(recurrence)
 	)
 
-	recurrenceDays := parseRecurrence(recurrence)
 crontask:
 	for {
 		select {
@@ -181,12 +181,13 @@ crontask:
 			nowBeforeScheduling := time.Now().In(c.Location)
 
 			if !c.isRecurrenceDay(nowBeforeScheduling.Weekday(), recurrenceDays) {
-				slog.Info("time", "today is", nowBeforeScheduling.Weekday().String(), "recurrence days range", recurrenceDays,
+				slog.Info("time", "today is", nowBeforeScheduling.Weekday().String(), "recurrence days range", "false",
 					"action", "waiting", "next try", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
 				continue
 			}
+
 			if valid := c.validateCronNamespaces(ctx, namespaces); !valid {
 				time.Sleep(time.Minute * 1)
 				continue
