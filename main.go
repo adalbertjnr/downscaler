@@ -53,7 +53,8 @@ func main() {
 
 	cronSvc := cron.NewCron().
 		MustAddTimezoneLocation(currentTz).
-		AddKubeApiSvc(kubeApiSvc)
+		AddKubeApiSvc(kubeApiSvc).
+		AddInput(args)
 
 	svc := core.NewController(ctx,
 		kubeApiSvc,

@@ -1,11 +1,33 @@
 package cron
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 )
+
+func getNamespaceWithYamlExt(namespace string) string {
+	return namespace + ".yaml"
+}
+
+func createConfigMapKeyForPatching(key string) ([]byte, error) {
+	data := &corev1.ConfigMap{
+		Data: map[string]string{
+			key: "",
+		},
+	}
+
+	patch, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return patch, nil
+}
 
 func separatedScheduledNamespaces(rules DownscalerRules) map[string]struct{} {
 	scheduledNamespaces := make([]string, 0)

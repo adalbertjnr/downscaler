@@ -2,13 +2,18 @@ package cron
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/adalbertjnr/downscaler/helpers"
+	"github.com/adalbertjnr/downscaler/input"
 	k8s "github.com/adalbertjnr/downscaler/k8sutil"
 	"github.com/adalbertjnr/downscaler/shared"
+	"gopkg.in/yaml.v2"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -31,16 +36,17 @@ type Cron struct {
 	Kubernetes        k8s.Kubernetes
 	Location          *time.Location
 	Tasks             []CronTask
-	IgnoredNamespaces map[string]struct{}
 	Recurrence        string
+	IgnoredNamespaces map[string]struct{}
+	taskRoutines      map[string]chan struct{}
 	taskch            chan []CronTask
 	stopch            chan struct{}
-	taskRoutines      map[string]chan struct{}
+	input             *input.FromArgs
 }
 
 func NewCron() *Cron {
 	return &Cron{
-		taskch:       make(chan []CronTask, 1),
+		taskch:       make(chan []CronTask),
 		stopch:       make(chan struct{}),
 		taskRoutines: make(map[string]chan struct{}),
 	}
@@ -48,6 +54,11 @@ func NewCron() *Cron {
 
 func (c *Cron) AddKubeApiSvc(client k8s.Kubernetes) *Cron {
 	c.Kubernetes = client
+	return c
+}
+
+func (c *Cron) AddInput(input *input.FromArgs) *Cron {
+	c.input = input
 	return c
 }
 
@@ -177,11 +188,11 @@ crontask:
 		case <-stopch:
 			break crontask
 		default:
-			_, until := fromUntil(task.WithCron, c.Location)
-			nowBeforeScheduling := time.Now().In(c.Location)
+			_, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
+			now := time.Now().In(c.Location)
 
-			if !c.isRecurrenceDay(nowBeforeScheduling.Weekday(), recurrenceDays) {
-				slog.Info("time", "today is", nowBeforeScheduling.Weekday().String(), "recurrence days range", "false",
+			if !c.isRecurrenceDay(now.Weekday(), recurrenceDays) {
+				slog.Info("time", "today is", now.Weekday().String(), "recurrence days range", "false",
 					"action", "waiting", "next try", "1 minute",
 				)
 				time.Sleep(time.Minute * 1)
@@ -193,8 +204,42 @@ crontask:
 				continue
 			}
 
-			if !nowBeforeScheduling.After(until) {
-				ut, nw := toStringWithFormat(until, nowBeforeScheduling)
+			// now 19:30
+			// upscaling 06:00
+			// downscaling 20:00
+
+			// map[string][]string{
+			// "namespace-1": {"deployment-1,5,0"}
+			//}
+
+			// if now.After(targetTimeToUpscale) && now.Before(targetTimeToDownscale) {
+			// namespace.state = 0 {
+			// realiza upscale
+			// mudar estado
+			//}
+			// 	time.Sleep(time.Minute * 1)
+			// 	continue
+			// }
+			// if now.Hour() > targetTimeToUpscale.Hour() && now.Hour() < targetTimeToDownscale.Hour() {
+			// if namespace.InDownscale {
+			// realiza upscale
+			// 	}
+			// continue
+			// }
+
+			// if now.After(targetTimeToDownscale) {
+			// }
+
+			// if now.Hour() >= targetTimeToDownscale.Hour() {
+			// realiza downscale
+			// if  !namesapce.InDownscale {
+			// realiza downscale
+			//}
+			// continue
+			// }
+
+			if now.Before(targetTimeToDownscale) {
+				ut, nw := toStringWithFormat(targetTimeToDownscale, now)
 				slog.Info("crontask routine", "current time", nw, "provided crontime", ut,
 					"namespace(s)", namespaces, "status", "before downscaling", "next retry", "1 minute",
 				)
@@ -207,20 +252,23 @@ crontask:
 				ScheduledNamespaces: task.ScheduledNamespaces,
 			}
 
-			c.Kubernetes.StartDownscaling(ctx, namespaces, notUsableNamespaces)
-
+			oldStateReplicas := c.Kubernetes.StartDownscaling(ctx, namespaces, notUsableNamespaces)
+			err := c.writeOldStateDeploymentsReplicas(ctx, oldStateReplicas)
+			if err != nil {
+				slog.Error("error writing the old state replicas", "error", err)
+			}
 		restartCronTask:
 			for {
 				select {
 				case <-stopch:
 					break crontask
 				default:
-					from, until := fromUntil(task.WithCron, c.Location)
+					targetTimeToUpscale, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
 					nowAfterScheduling := time.Now().In(c.Location)
 
-					if (from.Before(until) && (nowAfterScheduling.Before(from) || nowAfterScheduling.After(until))) ||
-						(from.After(until) && (nowAfterScheduling.Before(from) && nowAfterScheduling.After(until))) {
-						fr, nw := toStringWithFormat(from, nowAfterScheduling)
+					if (targetTimeToUpscale.Before(targetTimeToDownscale) && (nowAfterScheduling.Before(targetTimeToUpscale) || nowAfterScheduling.After(targetTimeToDownscale))) ||
+						(targetTimeToUpscale.After(targetTimeToDownscale) && (nowAfterScheduling.Before(targetTimeToUpscale) && nowAfterScheduling.After(targetTimeToDownscale))) {
+						fr, nw := toStringWithFormat(targetTimeToUpscale, nowAfterScheduling)
 						slog.Info("crontask routine", "current time", nw, "provided crontime", fr,
 							"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
 						)
@@ -270,6 +318,87 @@ func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 		c.Recurrence = recurrence
 	}
 }
+
+func (c *Cron) inspectNamespaceState(ctx context.Context) map[string][]string {
+	if c.input.RunUpscaling {
+		namespaceState := make(map[string][]string)
+
+		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+		err := helpers.UnmarshalDataPolicy(cm, &namespaceState, shared.DataTypeDeployments)
+		if err != nil {
+			slog.Error("error unmarshaling data time policy", "error", err)
+			return nil
+		}
+		return namespaceState
+	}
+	return nil
+}
+
+func (c *Cron) inspectLastRunHourIfExists(ctx context.Context) string {
+	if c.input.RunUpscaling {
+		lastRun := make(map[string]string)
+		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+		err := helpers.UnmarshalDataPolicy(cm, &lastRun, shared.DataTypeTimeHour)
+		if err != nil {
+			slog.Error("error unmarshaling data time policy", "error", err)
+			return ""
+		}
+		return lastRun[shared.DataTypeTimeHour]
+	}
+	return ""
+}
+
+func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context, oldStateReplicas map[string][]string, cmData map[string]string) error {
+	for namespace := range oldStateReplicas {
+		namespaceYamlKey := getNamespaceWithYamlExt(namespace)
+		if _, exists := cmData[namespaceYamlKey]; !exists {
+			patchWithKey, err := createConfigMapKeyForPatching(namespaceYamlKey)
+			if err != nil {
+				slog.Error("error creating configmap key for patching", "error", err)
+				return err
+			}
+			c.Kubernetes.PatchConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace, patchWithKey)
+		}
+	}
+	return nil
+}
+
+func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, oldState map[string][]string) error {
+	for namespace := range oldState {
+		namespaceKey := getNamespaceWithYamlExt(namespace)
+		yamlData, err := yaml.Marshal(oldState[namespace])
+		if err != nil {
+			return err
+		}
+		patch := &corev1.ConfigMap{
+			Data: map[string]string{
+				namespaceKey: string(yamlData),
+			},
+		}
+		patchBytes, err := json.Marshal(patch)
+		if err != nil {
+			return err
+		}
+		c.Kubernetes.PatchConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace, patchBytes)
+	}
+	return nil
+}
+
+func (c *Cron) writeOldStateDeploymentsReplicas(ctx context.Context, oldState map[string][]string) error {
+	if c.input.RunUpscaling {
+		currentCm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+		err := c.checkIfNamespaceExistsInConfigMapBeforeWrite(ctx, oldState, currentCm.Data)
+		if err != nil {
+			return err
+		}
+
+		if err := c.writeCmValueByNamespaceKey(ctx, oldState); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
 	if !strings.EqualFold(c.Location.String(), timezone) {
 		location, err := time.LoadLocation(timezone)
