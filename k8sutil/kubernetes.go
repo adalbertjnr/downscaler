@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/shared"
@@ -25,7 +24,7 @@ type Kubernetes interface {
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
 	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
-	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling)
+	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling) map[string][]string
 	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
 	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
 	CreateConfigMap(ctx context.Context, name, namespace string) error
@@ -57,7 +56,7 @@ func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace str
 
 	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Create(ctx, create, metav1.CreateOptions{})
 	if err != nil {
-		slog.Error("error", "not able to create configmap", "name", name, "namespace", namespace, "reason", err)
+		slog.Error("not able to create configmap", "name", name, "namespace", namespace, "reason", err)
 		return err
 	}
 
@@ -111,7 +110,7 @@ func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVe
 	}
 
 	data := &shared.DownscalerPolicy{}
-	obj := list.Items[0]
+	obj := &list.Items[0]
 	if err := helpers.UnmarshalDataPolicy(obj, data); err != nil {
 		slog.Error("unmarshaling", "error", err)
 		return nil, err
@@ -189,74 +188,38 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 	return watcher, nil
 }
 
-func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling,
-) {
-
+func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, evicted shared.NotUsableNamespacesDuringScheduling,
+) map[string][]string {
+	deploymentStateByNamespace := make(map[string][]string)
 	for _, namespace := range namespaces {
-		if _, exists := is.IgnoredNamespaces[namespace]; exists {
-			slog.Info("downscaling message",
-				"ignoring namespace", namespace,
-				"reason", "already ignored from the config",
-			)
+		if isNamespaceIgnored(namespace, evicted) {
 			continue
 		}
-
 		if namespace == shared.SpecialAnyOtherFlag {
-			invokeSpecialAnyOtherFlag(ctx, k, is)
-			return
+			oldStateResponse := invokeSpecialAnyOtherFlag(ctx, k, evicted, deploymentStateByNamespace)
+			return oldStateResponse
 		}
-
-		deployments := k.GetDeployments(ctx, namespace)
-		for _, deployment := range deployments.Items {
-			k.DownscaleDeployments(ctx, namespace, &deployment)
-		}
+		deploymentAndReplicasFingerprint := downscaleNamespace(ctx, k, namespace)
+		deploymentStateByNamespace[namespace] = deploymentAndReplicasFingerprint
 	}
+	return deploymentStateByNamespace
 }
 
-func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, is shared.NotUsableNamespacesDuringScheduling) {
+func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
-
-		if _, exists := is.IgnoredNamespaces[clusterNamespace]; exists {
-			slog.Info("downscaling message",
-				"ignoring namespace", clusterNamespace,
-				"reason", "already ignored from the config",
-			)
+		if isNamespaceIgnored(clusterNamespace, evicted) {
 			continue
 		}
-
-		if _, scheduled := is.ScheduledNamespaces[clusterNamespace]; scheduled {
-			slog.Info("downscaling message",
-				"ignoring namespace", clusterNamespace,
-				"reason", "already scheduled by another routine",
-			)
+		if isNamespaceAlreadyScheduled(clusterNamespace, evicted) {
 			continue
 		}
-
-		if strings.EqualFold(clusterNamespace, shared.DownscalerNamespace) {
-			slog.Info("downscaling message",
-				"the found namespace", clusterNamespace,
-				"match the downscaler namespace", shared.DownscalerNamespace,
-				"status", "not ignored during scheduling",
-				"action", "will be last downscaled namespace",
-			)
+		if isCurrentNamespaceScheduledToDownscale(clusterNamespace, shared.DownscalerNamespace) {
 			continue
 		}
-
-		deployments := k8sClient.GetDeployments(ctx, clusterNamespace)
-		for _, deployment := range deployments.Items {
-			k8sClient.DownscaleDeployments(ctx, clusterNamespace, &deployment)
-		}
-
+		deploymentAndReplicasFringerprint := downscaleNamespace(ctx, k8sClient, clusterNamespace)
+		oldState[clusterNamespace] = deploymentAndReplicasFringerprint
 	}
-
-	if _, found := is.IgnoredNamespaces[shared.DownscalerNamespace]; !found {
-		downscalerNamespaceDeploymentList := k8sClient.GetDeployments(ctx, shared.DownscalerNamespace)
-		if downscalerNamespaceDeploymentList != nil {
-			for _, deployment := range downscalerNamespaceDeploymentList.Items {
-				k8sClient.DownscaleDeployments(ctx, shared.DownscalerNamespace, &deployment)
-			}
-		}
-	}
-
+	DownscaleAnyOther(ctx, k8sClient, evicted)
+	return oldState
 }

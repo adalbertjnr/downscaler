@@ -7,6 +7,11 @@ const (
 
 	SpecialAnyOtherFlag = "any-other"
 	DownscalerNamespace = "downscaler"
+
+	DataTypeDeployments = "deployments.yaml"
+	DataTypeTimeHour    = "time.yaml"
+
+	LastRun = "lastRun"
 )
 
 type Metadata struct {
@@ -49,4 +54,9 @@ type DownscalerPolicy struct {
 type NotUsableNamespacesDuringScheduling struct {
 	IgnoredNamespaces   map[string]struct{}
 	ScheduledNamespaces map[string]struct{}
+}
+
+type OldStateHelper struct {
+	OldStateGeneric              map[string][]string
+	DeploymentAndCurrentReplicas []string
 }
