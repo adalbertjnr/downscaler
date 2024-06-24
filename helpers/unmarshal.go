@@ -3,7 +3,6 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/adalbertjnr/downscaler/shared"
 	"gopkg.in/yaml.v2"
@@ -11,21 +10,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func UnmarshalDataPolicy(cm interface{}, data interface{}, dataType ...string) error {
+func UnmarshalDataPolicy(cm interface{}, data interface{}) error {
 	switch v := cm.(type) {
 	case *corev1.ConfigMap:
-		switch strings.Join(dataType, "") {
-		case shared.DataTypeDeployments:
-			err := yaml.Unmarshal([]byte(v.Data[shared.DataTypeDeployments]), data.(map[string][]string))
-			if err != nil {
-				return err
-			}
-		case shared.DataTypeTimeHour:
-			err := yaml.Unmarshal([]byte(v.Data[shared.DataTypeDeployments]), data.(map[string]string))
-			if err != nil {
-				return err
-			}
+		jsonData, err := json.Marshal(v.Data)
+		if err != nil {
+			return err
 		}
+		return yaml.Unmarshal(jsonData, data.(map[string]interface{}))
 	case *unstructured.Unstructured:
 		jsonData, err := json.Marshal(v.Object)
 		if err != nil {

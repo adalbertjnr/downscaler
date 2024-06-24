@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -247,6 +248,13 @@ crontask:
 				continue
 			}
 
+			currentReplicasState := c.inspectReplicasStateByNamespace(ctx)
+			if currentReplicasState == -1 {
+				continue
+			} else if currentReplicasState == 0 {
+
+			}
+
 			notUsableNamespaces := shared.NotUsableNamespacesDuringScheduling{
 				IgnoredNamespaces:   c.IgnoredNamespaces,
 				ScheduledNamespaces: task.ScheduledNamespaces,
@@ -264,11 +272,32 @@ crontask:
 					break crontask
 				default:
 					targetTimeToUpscale, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
-					nowAfterScheduling := time.Now().In(c.Location)
+					now := time.Now().In(c.Location)
 
-					if (targetTimeToUpscale.Before(targetTimeToDownscale) && (nowAfterScheduling.Before(targetTimeToUpscale) || nowAfterScheduling.After(targetTimeToDownscale))) ||
-						(targetTimeToUpscale.After(targetTimeToDownscale) && (nowAfterScheduling.Before(targetTimeToUpscale) && nowAfterScheduling.After(targetTimeToDownscale))) {
-						fr, nw := toStringWithFormat(targetTimeToUpscale, nowAfterScheduling)
+					//now 11:10
+					//dow 20:00
+					//ups 05:10
+
+					//now 22:00
+					//dow 20:00
+					//ups 06:00
+
+					// if !now.Before(targetTimeToDownscale) && !now.After(targetTimeToUpscale) {
+					if now.After(targetTimeToDownscale) && now.Before(targetTimeToUpscale) {
+						fr, nw := toStringWithFormat(targetTimeToUpscale, now)
+						slog.Info("crontask routine", "current time", nw, "provided crontime", fr,
+							"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
+						)
+						time.Sleep(time.Minute * 1)
+						continue
+					}
+
+					//upscaling and and writing current replicas
+					//then break
+
+					if (targetTimeToUpscale.Before(targetTimeToDownscale) && (now.Before(targetTimeToUpscale) || now.After(targetTimeToDownscale))) ||
+						(targetTimeToUpscale.After(targetTimeToDownscale) && (now.Before(targetTimeToUpscale) && now.After(targetTimeToDownscale))) {
+						fr, nw := toStringWithFormat(targetTimeToUpscale, now)
 						slog.Info("crontask routine", "current time", nw, "provided crontime", fr,
 							"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
 						)
@@ -319,19 +348,32 @@ func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 	}
 }
 
-func (c *Cron) inspectNamespaceState(ctx context.Context) map[string][]string {
+func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context) int {
 	if c.input.RunUpscaling {
-		namespaceState := make(map[string][]string)
+		namespaceState := make(map[string]interface{})
 
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
-		err := helpers.UnmarshalDataPolicy(cm, &namespaceState, shared.DataTypeDeployments)
+		err := helpers.UnmarshalDataPolicy(cm, &namespaceState)
 		if err != nil {
 			slog.Error("error unmarshaling data time policy", "error", err)
-			return nil
+			return -1
 		}
-		return namespaceState
+
+		var replicaCountSum int = 0
+		for _, namespaceIndex := range namespaceState {
+			for _, appDeploymentReplicas := range namespaceIndex.([]interface{}) {
+				replicasStr := strings.Split(appDeploymentReplicas.(string), ",")[1]
+				replicasInt, err := strconv.Atoi(replicasStr)
+				if err != nil {
+					slog.Error("conversion error", "err", err)
+					return -1
+				}
+				replicaCountSum += replicasInt
+			}
+		}
+		return replicaCountSum
 	}
-	return nil
+	return -1
 }
 
 func (c *Cron) inspectLastRunHourIfExists(ctx context.Context) string {
