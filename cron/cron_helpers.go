@@ -134,3 +134,30 @@ func parseRecurrence(recurrence string) []time.Weekday {
 	}
 	return recurrenceDays
 }
+
+func (c *Cron) now() time.Time {
+	return time.Now().In(c.Location)
+}
+
+func logWaitRecurrenceDaysWithSleep(now time.Weekday) {
+	slog.Info("time", "today is", now.String(), "recurrence days range", "false",
+		"action", "waiting", "next try", "1 minute",
+	)
+	time.Sleep(time.Minute * 1)
+}
+
+func logWaitBeforeDownscalingWithSleep(now time.Time, targetTimeToDownscale time.Time, namespaces []string) {
+	ut, nw := toStringWithFormat(targetTimeToDownscale, now)
+	slog.Info("crontask routine", "current time", nw, "provided crontime", ut,
+		"namespace(s)", namespaces, "status", "before downscaling", "next retry", "1 minute",
+	)
+	time.Sleep(time.Minute * 1)
+}
+
+func logWaitAfterDownscalingWithSleep(now time.Time, targetTimeToUpscale time.Time, namespaces []string) {
+	fr, nw := toStringWithFormat(targetTimeToUpscale, now)
+	slog.Info("crontask routine", "current time", nw, "provided crontime", fr,
+		"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
+	)
+	time.Sleep(time.Minute * 1)
+}
