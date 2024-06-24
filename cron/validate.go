@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/adalbertjnr/downscaler/shared"
 )
@@ -35,6 +36,7 @@ func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []
 				"error", ErrNamespaceFromConfigDoNotExists,
 				"next retry", "1 minute",
 			)
+			time.Sleep(time.Minute * 1)
 			return false
 		}
 	}
