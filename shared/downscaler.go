@@ -14,6 +14,20 @@ const (
 	LastRun = "lastRun"
 )
 
+type TaskControl int
+
+const (
+	InspectError TaskControl = -1
+
+	KillCurrentRoutine TaskControl = iota
+	RestartRoutine
+
+	AvailableToUpscaling
+	AvailableToDownscaling
+
+	UpscalingDeactivated
+)
+
 type Metadata struct {
 	Name      string
 	Namespace string
