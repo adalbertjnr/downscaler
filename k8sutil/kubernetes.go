@@ -48,10 +48,7 @@ func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace str
 			Name:      name,
 			Namespace: namespace,
 		},
-		Data: map[string]string{
-			"deployments.yaml": "",
-			"time.yaml":        "",
-		},
+		Data: map[string]string{},
 	}
 
 	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Create(ctx, create, metav1.CreateOptions{})
@@ -78,11 +75,6 @@ func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace strin
 	}
 
 	if len(cm.Items) > 0 {
-		slog.Info("configmap message",
-			"retrieved config map", name,
-			"namespace", namespace,
-		)
-
 		return &cm.Items[0]
 	}
 
@@ -95,6 +87,7 @@ func (k KubernetesImpl) PatchConfigMap(ctx context.Context, name, namespace stri
 		slog.Error("configmap error",
 			"not possible to update configmap", name,
 			"namespace", namespace,
+			"error", err,
 		)
 	}
 
