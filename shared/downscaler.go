@@ -22,11 +22,18 @@ const (
 	KillCurrentRoutine TaskControl = iota
 	RestartRoutine
 
-	AvailableToUpscaling
-	AvailableToDownscaling
+	DeploymentsWithDownscaledState
+	DeploymentsWithUpscaledState
+
+	AppStartupWithNoDataWrite
 
 	UpscalingDeactivated
 )
+
+type Apps struct {
+	Namespace                       string   `yaml:"namespace"`
+	DeploymentsWithReplicasAndState []string `yaml:"deploymentsWithReplicasAndState"`
+}
 
 type Metadata struct {
 	Name      string
