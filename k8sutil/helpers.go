@@ -49,7 +49,7 @@ func downscaleNamespace(ctx context.Context, k Kubernetes, namespace string) []s
 
 	deploymentAndReplicas := make([]string, 0)
 	for _, deployment := range deploymentsWithinNamespace.Items {
-		oldStateDeploymentFingerprint := fmt.Sprintf("%s,%d", deployment.Name, *deployment.Spec.Replicas)
+		oldStateDeploymentFingerprint := fmt.Sprintf("%s,%d,%d", deployment.Name, *deployment.Spec.Replicas, shared.DeploymentsWithDownscaledState)
 		deploymentAndReplicas = append(deploymentAndReplicas, oldStateDeploymentFingerprint)
 		k.DownscaleDeployments(ctx, namespace, &deployment)
 	}
