@@ -13,11 +13,15 @@ import (
 func UnmarshalDataPolicy(cm interface{}, data interface{}) error {
 	switch v := cm.(type) {
 	case *corev1.ConfigMap:
-		jsonData, err := json.Marshal(v.Data)
-		if err != nil {
-			return err
+		for key, value := range v.Data {
+			var app shared.Apps
+			err := yaml.Unmarshal([]byte(value), &app)
+			if err != nil {
+				return err
+			}
+			data.(map[string]shared.Apps)[key] = app
 		}
-		return yaml.Unmarshal(jsonData, data.(map[string]interface{}))
+		return nil
 	case *unstructured.Unstructured:
 		jsonData, err := json.Marshal(v.Object)
 		if err != nil {
