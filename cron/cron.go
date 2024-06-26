@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"time"
 
@@ -226,13 +225,11 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 			}
 
 			if currentReplicasState == shared.DeploymentsWithDownscaledState {
-				c.handleDownscaling(task, namespaces)
 				next := c.handleUpscaling(task, stopch, namespaces)
 				if next == shared.KillCurrentRoutine {
 					return
 				}
 			}
-
 		}
 	}
 
@@ -302,23 +299,22 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 				continue
 			}
 
-			for _, appDeploymentWithState := range namespaceIndex.DeploymentsWithReplicasAndState {
-				replicasStr := strings.TrimSpace(strings.Split(appDeploymentWithState, ",")[2])
-				replicasInt, err := strconv.Atoi(replicasStr)
-				if err != nil {
-					slog.Error("conversion error", "err", err)
-					return shared.InspectError, err
-				}
-				replicaCountSum += replicasInt
-				notEmptyIndex++
+			sum, count, err := parseReplicaState(namespaceIndex.DeploymentsWithReplicasAndState)
+			if err != nil {
+				slog.Error("conversion error", "err", err)
+				return shared.InspectError, err
 			}
+			replicaCountSum += sum
+			notEmptyIndex += count
 		}
 
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithDownscaledState) {
+			fmt.Println("returning the state ", shared.DeploymentsWithDownscaledState)
 			return shared.DeploymentsWithDownscaledState, nil
 		}
 
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithUpscaledState) {
+			fmt.Println("returning the state ", shared.DeploymentsWithUpscaledState)
 			return shared.DeploymentsWithUpscaledState, nil
 		}
 	}

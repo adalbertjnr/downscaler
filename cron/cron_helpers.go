@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,22 @@ func createConfigMapKeyForPatching(key string) ([]byte, error) {
 	}
 
 	return patch, nil
+}
+
+func parseReplicaState(deploymentWithState []string) (int, int, error) {
+	replicaCountSum := 0
+	notEmptyIndex := 0
+	for _, appDeploymentWithState := range deploymentWithState {
+		replicasStr := strings.TrimSpace(strings.Split(appDeploymentWithState, ",")[2])
+		replicasInt, err := strconv.Atoi(replicasStr)
+		if err != nil {
+			slog.Error("conversion error", "err", err)
+			return 0, 0, err
+		}
+		replicaCountSum += replicasInt
+		notEmptyIndex++
+	}
+	return replicaCountSum, notEmptyIndex, nil
 }
 
 func separatedScheduledNamespaces(rules DownscalerRules) map[string]struct{} {
