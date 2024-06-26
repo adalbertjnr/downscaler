@@ -56,7 +56,7 @@ func downscaleNamespace(ctx context.Context, k Kubernetes, namespace string) []s
 	return deploymentAndReplicas
 }
 
-func DownscaleAnyOther(ctx context.Context, k Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling) {
+func downscaleTheDownscaler(ctx context.Context, k Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling) {
 	if _, found := evicted.IgnoredNamespaces[shared.DownscalerNamespace]; !found {
 		deployments := k.GetDeployments(ctx, shared.DownscalerNamespace)
 

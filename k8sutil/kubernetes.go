@@ -211,8 +211,8 @@ func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, evicte
 			continue
 		}
 		deploymentAndReplicasFringerprint := downscaleNamespace(ctx, k8sClient, clusterNamespace)
-		oldState[clusterNamespace] = deploymentAndReplicasFringerprint
+		oldState[shared.SpecialAnyOtherFlag] = deploymentAndReplicasFringerprint
 	}
-	DownscaleAnyOther(ctx, k8sClient, evicted)
+	downscaleTheDownscaler(ctx, k8sClient, evicted)
 	return oldState
 }
