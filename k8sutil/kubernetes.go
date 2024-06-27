@@ -66,14 +66,12 @@ func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace strin
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
 	},
 	)
-
 	if err != nil {
 		slog.Error("configmap error",
 			"not possible to get configmap", name,
 			"namespace", namespace,
 		)
 	}
-
 	if len(cm.Items) > 0 {
 		return &cm.Items[0]
 	}
@@ -90,8 +88,6 @@ func (k KubernetesImpl) PatchConfigMap(ctx context.Context, name, namespace stri
 			"error", err,
 		)
 	}
-
-	slog.Info("configmap updated", "name", name, "namespace", namespace)
 }
 
 func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error) {
@@ -188,8 +184,8 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 		if isNamespaceIgnored(namespace, evicted) {
 			continue
 		}
-		if namespace == shared.SpecialAnyOtherFlag {
-			oldStateResponse := invokeSpecialAnyOtherFlag(ctx, k, evicted, deploymentStateByNamespace)
+		if namespace == shared.Unspecified {
+			oldStateResponse := invokeUnspecified(ctx, k, evicted, deploymentStateByNamespace)
 			return oldStateResponse
 		}
 		deploymentAndReplicasFingerprint := downscaleNamespace(ctx, k, namespace)
@@ -198,7 +194,7 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 	return deploymentStateByNamespace
 }
 
-func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
+func invokeUnspecified(ctx context.Context, k8sClient Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
 		if isNamespaceIgnored(clusterNamespace, evicted) {
@@ -211,7 +207,7 @@ func invokeSpecialAnyOtherFlag(ctx context.Context, k8sClient Kubernetes, evicte
 			continue
 		}
 		deploymentAndReplicasFringerprint := downscaleNamespace(ctx, k8sClient, clusterNamespace)
-		oldState[shared.SpecialAnyOtherFlag] = deploymentAndReplicasFringerprint
+		oldState[shared.Unspecified] = deploymentAndReplicasFringerprint
 	}
 	downscaleTheDownscaler(ctx, k8sClient, evicted)
 	return oldState
