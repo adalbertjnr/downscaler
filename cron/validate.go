@@ -27,7 +27,7 @@ func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []
 	}
 
 	for _, cronNamespace := range cronTaskNamespaces {
-		if cronNamespace == shared.SpecialAnyOtherFlag {
+		if cronNamespace == shared.Unspecified {
 			continue
 		}
 		if _, exists := k8sNamespaceSet[cronNamespace]; !exists {

@@ -5,13 +5,8 @@ const (
 	Resource = "downscalers"
 	Group    = "scheduler.go"
 
-	SpecialAnyOtherFlag = "any-other"
 	DownscalerNamespace = "downscaler"
-
-	DataTypeDeployments = "deployments.yaml"
-	DataTypeTimeHour    = "time.yaml"
-
-	LastRun = "lastRun"
+	Unspecified         = "unspecified"
 )
 
 type TaskControl int
