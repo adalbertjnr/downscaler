@@ -7,6 +7,9 @@ const (
 
 	DownscalerNamespace = "downscaler"
 	Unspecified         = "unspecified"
+
+	DefaultGroup     = "default"
+	UnspecifiedGroup = "unspecified"
 )
 
 type TaskControl int
@@ -26,8 +29,8 @@ const (
 )
 
 type Apps struct {
-	Namespace                       string   `yaml:"namespace"`
-	DeploymentsWithReplicasAndState []string `yaml:"deploymentsWithReplicasAndState"`
+	Group string   `yaml:"group"`
+	State []string `yaml:"state"`
 }
 
 type Metadata struct {

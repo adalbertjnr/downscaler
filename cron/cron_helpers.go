@@ -11,6 +11,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func extractSegments(raw []string) ([]string, string) {
+	cmData := make([]string, len(raw))
+	for i, value := range raw {
+		parts := strings.Split(value, ",")
+		cmData[i] = fmt.Sprintf("%s,%s,%s", parts[1], parts[2], parts[3])
+	}
+
+	return cmData, strings.Split(raw[0], ",")[0]
+}
+
 func getNamespaceWithYamlExt(namespace string) string {
 	return namespace + ".yaml"
 }

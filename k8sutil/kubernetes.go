@@ -172,30 +172,27 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 			continue
 		}
 		if namespace == shared.Unspecified {
-			oldStateResponse := invokeUnspecified(ctx, k, evicted, deploymentStateByNamespace)
+			oldStateResponse := invokeUnspecifiedNamespaces(ctx, k, evicted, deploymentStateByNamespace)
 			return oldStateResponse
 		}
-		deploymentAndReplicasFingerprint := downscaleNamespace(ctx, k, namespace)
+		deploymentAndReplicasFingerprint, _ := downscaleNamespace(ctx, k, namespace, shared.DefaultGroup)
 		deploymentStateByNamespace[namespace] = deploymentAndReplicasFingerprint
 	}
 	return deploymentStateByNamespace
 }
 
-func invokeUnspecified(ctx context.Context, k8sClient Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
+func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
-		if isNamespaceIgnored(clusterNamespace, evicted) {
+		if shouldSkipNamespace(clusterNamespace, evictedNamespaces) {
 			continue
 		}
-		if isNamespaceAlreadyScheduled(clusterNamespace, evicted) {
+		deploymentAndReplicasFringerprint, err := downscaleNamespace(ctx, k8sClient, clusterNamespace, shared.UnspecifiedGroup)
+		if err != nil {
 			continue
 		}
-		if isCurrentNamespaceScheduledToDownscale(clusterNamespace, shared.DownscalerNamespace) {
-			continue
-		}
-		deploymentAndReplicasFringerprint := downscaleNamespace(ctx, k8sClient, clusterNamespace)
-		oldState[shared.Unspecified] = deploymentAndReplicasFringerprint
+		oldState[clusterNamespace] = deploymentAndReplicasFringerprint
 	}
-	downscaleTheDownscaler(ctx, k8sClient, evicted)
+	downscaleTheDownscaler(ctx, k8sClient, evictedNamespaces)
 	return oldState
 }

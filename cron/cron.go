@@ -270,6 +270,9 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
 
 		for _, namespace := range namespaces {
+			if namespace == shared.Unspecified {
+				continue
+			}
 			if cm.Data[namespace+".yaml"] == "" {
 				return shared.AppStartupWithNoDataWrite, nil
 			}
@@ -287,11 +290,11 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 		)
 
 		for _, namespaceIndex := range namespaceState {
-			if namespaceIndex.DeploymentsWithReplicasAndState == nil {
+			if namespaceIndex.State == nil {
 				continue
 			}
 
-			sum, count, err := parseReplicaState(namespaceIndex.DeploymentsWithReplicasAndState)
+			sum, count, err := parseReplicaState(namespaceIndex.State)
 			if err != nil {
 				slog.Error("conversion error", "err", err)
 				return shared.InspectError, err
@@ -329,9 +332,10 @@ func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context,
 func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, oldState map[string][]string) error {
 	for namespace := range oldState {
 		namespaceKey := getNamespaceWithYamlExt(namespace)
+		state, group := extractSegments(oldState[namespace])
 		patchWith := shared.Apps{
-			Namespace:                       namespace,
-			DeploymentsWithReplicasAndState: oldState[namespace],
+			Group: group,
+			State: state,
 		}
 		yamlData, err := yaml.Marshal(patchWith)
 		if err != nil {
