@@ -43,15 +43,6 @@ func (c *Cron) validateCronNamespaces(ctx context.Context, cronTaskNamespaces []
 	return true
 }
 
-func evaluateNamespaceState(data map[string][]string, assignedWorkerNamespaces []string) bool {
-	for _, namespace := range assignedWorkerNamespaces {
-		if currentState, ok := data[namespace]; ok {
-			_ = currentState
-		}
-	}
-	return false
-}
-
 func stillSameRecurrenceTime(currentRecurrence, newRecurrence string) bool {
 	return currentRecurrence != "" && strings.EqualFold(currentRecurrence, newRecurrence)
 }

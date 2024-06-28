@@ -100,7 +100,6 @@ func (c *Cron) parseCronConfig(
 
 	if !stillSameRecurrenceTime(recurrence, c.Recurrence) {
 		c.Recurrence = recurrence
-		slog.Info("cron recurrence received", "recurrence", c.Recurrence)
 	}
 
 	if expression.withExclude() {
@@ -157,23 +156,18 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 			c.taskRoutines[key] = stopch
 
 			go c.runTasks(task, stopch)
-			slog.Info("changes detected in crontime", "action", "triggering task routine",
-				"recurrence", task.Recurrence, "namespaces", task.Namespaces, "crontime", task.WithCron,
-			)
-		} else {
-			slog.Info("no changes detected in cron time", "action", "ignoring")
 		}
 	}
 }
 
 func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
-	slog.Info("crontask routine", "with namespace(s) task", task.Namespaces, "with cron(s) task", task.WithCron,
-		"with recurrence", task.Recurrence, "reason", "crontime created", "status", "initializing",
+	slog.Info("task", "provided namespace(s)", task.Namespaces, "period time", task.WithCron,
+		"recurrence", task.Recurrence, "status", "initializing",
 	)
 
 	defer func() {
-		slog.Info("crontask routine", "with namespace(s) task", task.Namespaces, "with cron(s) task", task.WithCron,
-			"with recurrence", task.Recurrence, "reason", "crontime updated", "status", "terminated",
+		slog.Info("task", "provided namespace(s)", task.Namespaces, "period time", task.WithCron,
+			"recurrence", task.Recurrence, "status", "terminated",
 		)
 	}()
 
@@ -238,8 +232,6 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 func (c *Cron) killCurrentCronRoutines() {
 	if len(c.taskRoutines) > 0 {
 		for key, stopch := range c.taskRoutines {
-			slog.Info("cleanup crontask map process",
-				"key", key, "reason", "crontime updated by the user")
 			delete(c.taskRoutines, key)
 			close(stopch)
 		}
@@ -309,12 +301,10 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 		}
 
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithDownscaledState) {
-			fmt.Println("returning the state ", shared.DeploymentsWithDownscaledState)
 			return shared.DeploymentsWithDownscaledState, nil
 		}
 
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithUpscaledState) {
-			fmt.Println("returning the state ", shared.DeploymentsWithUpscaledState)
 			return shared.DeploymentsWithUpscaledState, nil
 		}
 	}

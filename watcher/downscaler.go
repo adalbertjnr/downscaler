@@ -59,8 +59,9 @@ func (w *Watcher) DownscalerKind(
 					slog.Error("unmarshaling", "error unmarshaling in the watcher", err)
 				}
 				slog.Info("watcher",
-					"message", "downscalercrd was updated",
+					"kind", "downscaler",
 					"name", data.Metadata.Name,
+					"status", "updated",
 				)
 				w.RtObjectch <- event.Object
 			case watch.Error:

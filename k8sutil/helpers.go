@@ -11,10 +11,6 @@ import (
 
 func isNamespaceIgnored(namespace string, evicted shared.NotUsableNamespacesDuringScheduling) bool {
 	if _, exists := evicted.IgnoredNamespaces[namespace]; exists {
-		slog.Info("downscaling message",
-			"ignoring namespace", namespace,
-			"reason", "already ignored from the config",
-		)
 		return true
 	}
 	return false
@@ -22,10 +18,6 @@ func isNamespaceIgnored(namespace string, evicted shared.NotUsableNamespacesDuri
 
 func isNamespaceAlreadyScheduled(namespace string, evicted shared.NotUsableNamespacesDuringScheduling) bool {
 	if _, exists := evicted.ScheduledNamespaces[namespace]; exists {
-		slog.Info("downscaling message",
-			"ignoring namespace", namespace,
-			"reason", "already scheduled by another routine",
-		)
 		return true
 	}
 	return false

@@ -53,11 +53,11 @@ func (k KubernetesImpl) CreateConfigMap(ctx context.Context, name, namespace str
 
 	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Create(ctx, create, metav1.CreateOptions{})
 	if err != nil {
-		slog.Error("not able to create configmap", "name", name, "namespace", namespace, "reason", err)
+		slog.Error("configmap", "name", name, "namespace", namespace, "verb", "create", "err", err)
 		return err
 	}
 
-	slog.Info("configmap created", "name", name, "namespace", namespace)
+	slog.Info("configmap", "name", name, "namespace", namespace, "verb", "create", "err", nil)
 	return nil
 }
 
@@ -67,10 +67,7 @@ func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace strin
 	},
 	)
 	if err != nil {
-		slog.Error("configmap error",
-			"not possible to get configmap", name,
-			"namespace", namespace,
-		)
+		slog.Error("configmap", "name", name, "namespace", namespace, "verb", "list", "err", err)
 	}
 	if len(cm.Items) > 0 {
 		return &cm.Items[0]
@@ -82,11 +79,7 @@ func (k KubernetesImpl) ListConfigMap(ctx context.Context, name, namespace strin
 func (k KubernetesImpl) PatchConfigMap(ctx context.Context, name, namespace string, patch []byte) {
 	_, err := k.K8sClient.CoreV1().ConfigMaps(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		slog.Error("configmap error",
-			"not possible to update configmap", name,
-			"namespace", namespace,
-			"error", err,
-		)
+		slog.Error("configmap", "name", name, "namespace", namespace, "verb", "patch", "err", err)
 	}
 }
 
@@ -95,6 +88,7 @@ func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVe
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", "downscaler").String(),
 	})
 	if err != nil {
+		slog.Error("crd", "kind", "downscaler", "verb", "list", "err", err)
 		return nil, err
 	}
 
@@ -110,15 +104,14 @@ func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVe
 
 func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
 	namespaces, err := k.K8sClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-
 	if err != nil {
-		slog.Error("listing namespaces", "error", err)
+		slog.Error("namespace", "verb", "list", "error", err)
 		return nil
 	}
 
-	namespacesNames := []string{}
-	for _, namespace := range namespaces.Items {
-		namespacesNames = append(namespacesNames, namespace.Name)
+	namespacesNames := make([]string, len(namespaces.Items))
+	for i, namespace := range namespaces.Items {
+		namespacesNames[i] = namespace.Name
 	}
 
 	return namespacesNames
@@ -127,9 +120,10 @@ func (k KubernetesImpl) GetNamespaces(ctx context.Context) []string {
 func (k KubernetesImpl) GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList {
 	deployments, err := k.K8sClient.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		slog.Error("get deployments error", "namespace", namespace, "error", err)
+		slog.Error("deployments", "verb", "list", "namespace", namespace, "err", err)
 		return nil
 	}
+
 	return deployments
 }
 
@@ -140,19 +134,11 @@ func (k KubernetesImpl) DownscaleDeployments(ctx context.Context, namespace stri
 	deployment.Spec.Replicas = &desiredReplicas
 	_, err := k.K8sClient.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
-		slog.Error("downscaling error",
-			"deployment", deployment.Name,
-			"namespace", namespace,
-			"error", err)
+		slog.Error("deployments", "name", deployment.Name, "namespace", namespace, "current replicas", currentReplicas, "desired replicas", desiredReplicas, "verb", "update", "err", err)
 		return
 	}
-	slog.Info("downscaling message",
-		"name", deployment.Name,
-		"namespace", namespace,
-		"old state replicas", currentReplicas,
-		"current state replicas", desiredReplicas,
-		"status", "success",
-	)
+
+	slog.Info("deployments", "name", deployment.Name, "namespace", namespace, "current replicas", currentReplicas, "desired replicas", desiredReplicas, "verb", "update", "err", err)
 }
 
 func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error) {
@@ -172,6 +158,7 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 		"group", shared.Group,
 		"version", shared.Version,
 		"resource", shared.Resource,
+		"verb", "watch",
 		"status", "created",
 	)
 	return watcher, nil
