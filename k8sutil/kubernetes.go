@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -22,9 +23,10 @@ type Kubernetes interface {
 	GetNamespaces(ctx context.Context) []string
 	GetDeployments(ctx context.Context, namespace string) *v1.DeploymentList
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
-	DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment)
+	ScaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment, patch []byte, updateScale int32)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
 	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling) map[string][]string
+	// StartUpscaling(ctx context.Context, cmName, cmNamespace string)
 	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
 	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
 	CreateConfigMap(ctx context.Context, name, namespace string) error
@@ -127,18 +129,32 @@ func (k KubernetesImpl) GetDeployments(ctx context.Context, namespace string) *v
 	return deployments
 }
 
-func (k KubernetesImpl) DownscaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment) {
-	desiredReplicas := int32(0)
+func (k KubernetesImpl) ScaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment, patch []byte, desiredReplicas int32) {
 	currentReplicas := *deployment.Spec.Replicas
 
-	deployment.Spec.Replicas = &desiredReplicas
-	_, err := k.K8sClient.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	_, err := k.K8sClient.AppsV1().Deployments(namespace).Patch(ctx, deployment.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		slog.Error("deployments", "name", deployment.Name, "namespace", namespace, "current replicas", currentReplicas, "desired replicas", desiredReplicas, "verb", "update", "err", err)
 		return
 	}
 
 	slog.Info("deployments", "name", deployment.Name, "namespace", namespace, "current replicas", currentReplicas, "desired replicas", desiredReplicas, "verb", "update", "err", err)
+}
+
+func generateScalePatch(updateScale int32) ([]byte, error) {
+	patch := struct {
+		Spec struct {
+			Replicas *int32 `json:"replicas"`
+		} `json:"spec"`
+	}{
+		Spec: struct {
+			Replicas *int32 `json:"replicas"`
+		}{
+			Replicas: &updateScale,
+		},
+	}
+
+	return json.Marshal(patch)
 }
 
 func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error) {
@@ -164,6 +180,28 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 	return watcher, nil
 }
 
+// func (k KubernetesImpl) StartUpscaling(ctx context.Context, cmName, cmNamespace string) {
+// 	cm := k.ListConfigMap(ctx, cmName, cmNamespace)
+// 	apps := make(map[string]shared.Apps)
+// 	if err := helpers.UnmarshalDataPolicy(cm, apps); err != nil {
+// 		slog.Error("unmarshal cm apps", "err", err)
+// 		return
+// 	}
+// 	for i, dataNamespaceValue := range apps {
+// 		for _, appState := range dataNamespaceValue.State {
+// 			parts := strings.Split(appState, ",")
+// 			scaleUpdate, err := strconv.Atoi(parts[1])
+// 			namespace := strings.TrimSuffix(i, ".yaml")
+// 			if err != nil {
+// 				slog.Error("conversion error", "err", err)
+// 				continue
+// 			}
+
+// 			k.ScaleDeployments(ctx, namespace)
+// 		}
+// 	}
+// }
+
 func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, evicted shared.NotUsableNamespacesDuringScheduling,
 ) map[string][]string {
 	deploymentStateByNamespace := make(map[string][]string)
@@ -172,8 +210,8 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 			continue
 		}
 		if namespace == shared.Unspecified {
-			oldStateResponse := invokeUnspecifiedNamespaces(ctx, k, evicted, deploymentStateByNamespace)
-			return oldStateResponse
+			cmCurrentState := invokeUnspecifiedNamespaces(ctx, k, evicted, deploymentStateByNamespace)
+			return cmCurrentState
 		}
 		deploymentAndReplicasFingerprint, _ := downscaleNamespace(ctx, k, namespace, shared.DefaultGroup)
 		deploymentStateByNamespace[namespace] = deploymentAndReplicasFingerprint
@@ -181,7 +219,7 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 	return deploymentStateByNamespace
 }
 
-func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, oldState map[string][]string) map[string][]string {
+func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, cmCurrentState map[string][]string) map[string][]string {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
 		if shouldSkipNamespace(clusterNamespace, evictedNamespaces) {
@@ -191,8 +229,8 @@ func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evic
 		if err != nil {
 			continue
 		}
-		oldState[clusterNamespace] = deploymentAndReplicasFringerprint
+		cmCurrentState[clusterNamespace] = deploymentAndReplicasFringerprint
 	}
 	downscaleTheDownscaler(ctx, k8sClient, evictedNamespaces)
-	return oldState
+	return cmCurrentState
 }

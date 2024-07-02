@@ -48,9 +48,15 @@ func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group stri
 
 	deploymentAndReplicas := make([]string, len(deploymentsWithinNamespace.Items))
 	for i, deployment := range deploymentsWithinNamespace.Items {
-		oldStateDeploymentFingerprint := fmt.Sprintf("%s,%s,%d,%d", group, deployment.Name, *deployment.Spec.Replicas, shared.DeploymentsWithDownscaledState)
-		deploymentAndReplicas[i] = oldStateDeploymentFingerprint
-		k.DownscaleDeployments(ctx, namespace, &deployment)
+		deploymentAndReplicas[i] = fmt.Sprintf("%s,%s,%d,%d", group, deployment.Name, *deployment.Spec.Replicas, shared.DeploymentsWithDownscaledState)
+
+		updateScale := int32(0)
+		patchBytes, err := generateScalePatch(updateScale)
+		if err != nil {
+			slog.Error("patch marshaling error", "err", err)
+		}
+
+		k.ScaleDeployments(ctx, namespace, &deployment, patchBytes, updateScale)
 	}
 	return deploymentAndReplicas, nil
 }
@@ -59,8 +65,14 @@ func downscaleTheDownscaler(ctx context.Context, k Kubernetes, evicted shared.No
 	if _, found := evicted.IgnoredNamespaces[shared.DownscalerNamespace]; !found {
 		deployments := k.GetDeployments(ctx, shared.DownscalerNamespace)
 
+		scaleUpdate := int32(0)
+		patchBytes, err := generateScalePatch(scaleUpdate)
+		if err != nil {
+			slog.Error("patch marshaling error", "err", err)
+		}
+
 		for _, deployment := range deployments.Items {
-			k.DownscaleDeployments(ctx, shared.DownscalerNamespace, &deployment)
+			k.ScaleDeployments(ctx, shared.DownscalerNamespace, &deployment, patchBytes, scaleUpdate)
 		}
 	}
 }
