@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/adalbertjnr/downscaler/helpers"
@@ -42,6 +43,7 @@ type Cron struct {
 	taskch            chan []CronTask
 	stopch            chan struct{}
 	input             *input.FromArgs
+	mu                sync.Mutex
 	ctx               context.Context
 }
 
@@ -50,6 +52,7 @@ func NewCron() *Cron {
 		taskch:       make(chan []CronTask),
 		stopch:       make(chan struct{}),
 		taskRoutines: make(map[string]chan struct{}),
+		mu:           sync.Mutex{},
 		ctx:          context.Background(),
 	}
 }
@@ -265,26 +268,9 @@ func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 
 func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces []string, scheduledNamespaces map[string]struct{}) (shared.TaskControl, error) {
 	if c.input.RunUpscaling {
+		c.mu.Lock()
 		namespaceState := make(map[string]shared.Apps)
-
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
-
-		for _, namespace := range namespaces {
-			if namespace == shared.Unspecified {
-				currentNamespaces := c.Kubernetes.GetNamespaces(ctx)
-				for _, currentNamespace := range currentNamespaces {
-					if _, found := scheduledNamespaces[currentNamespace]; !found {
-						if cm.Data[currentNamespace+".yaml"] == "" {
-							fmt.Println("returning this here", currentNamespace)
-							return shared.AppStartupWithNoDataWrite, nil
-						}
-					}
-				}
-			}
-			if cm.Data[namespace+".yaml"] == "" {
-				return shared.AppStartupWithNoDataWrite, nil
-			}
-		}
 
 		err := helpers.UnmarshalDataPolicy(cm, namespaceState)
 		if err != nil {
@@ -297,12 +283,20 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 			notEmptyIndex   int = 0
 		)
 
-		for _, namespaceIndex := range namespaceState {
-			if namespaceIndex.State == nil {
+		if cm.Data == nil {
+			return shared.AppStartupWithNoDataWrite, nil
+		}
+
+		for namespace, metadata := range namespaceState {
+			if metadata.State == nil && metadata.Status == shared.EmptyNamespace {
 				continue
 			}
 
-			sum, count, err := parseReplicaState(namespaceIndex.State)
+			if cm.Data[namespace] == "" {
+				return shared.AppStartupWithNoDataWrite, nil
+			}
+
+			sum, count, err := parseReplicaState(metadata.State)
 			if err != nil {
 				slog.Error("conversion error", "err", err)
 				return shared.InspectError, err
@@ -318,12 +312,13 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithUpscaledState) {
 			return shared.DeploymentsWithUpscaledState, nil
 		}
+		c.mu.Unlock()
 	}
 	return shared.UpscalingDeactivated, nil
 }
 
-func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context, oldStateReplicas map[string][]string, cmData map[string]string) error {
-	for namespace := range oldStateReplicas {
+func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context, cmCurrentState map[string]shared.Apps, cmData map[string]string) error {
+	for namespace := range cmCurrentState {
 		namespaceYamlKey := getNamespaceWithYamlExt(namespace)
 		if _, exists := cmData[namespaceYamlKey]; !exists {
 			patchWithKey, err := createConfigMapKeyForPatching(namespaceYamlKey)
@@ -337,14 +332,19 @@ func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context,
 	return nil
 }
 
-func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, oldState map[string][]string) error {
-	for namespace := range oldState {
-		namespaceKey := getNamespaceWithYamlExt(namespace)
-		state, group := extractSegments(oldState[namespace])
+func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
+	for namespace := range cmCurrentState {
+		var (
+			namespaceKey   = getNamespaceWithYamlExt(namespace)
+			metadataFromCm = cmCurrentState[namespace]
+		)
+
 		patchWith := shared.Apps{
-			Group: group,
-			State: state,
+			Status: metadataFromCm.Status,
+			Group:  metadataFromCm.Group,
+			State:  extractSegments(metadataFromCm),
 		}
+
 		yamlData, err := yaml.Marshal(patchWith)
 		if err != nil {
 			return err
@@ -363,15 +363,15 @@ func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, oldState map[stri
 	return nil
 }
 
-func (c *Cron) writeOldStateDeploymentsReplicas(ctx context.Context, oldState map[string][]string) error {
+func (c *Cron) writeOldStateDeploymentsReplicas(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
 	if c.input.RunUpscaling {
 		currentCm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
-		err := c.checkIfNamespaceExistsInConfigMapBeforeWrite(ctx, oldState, currentCm.Data)
+		err := c.checkIfNamespaceExistsInConfigMapBeforeWrite(ctx, cmCurrentState, currentCm.Data)
 		if err != nil {
 			return err
 		}
 
-		if err := c.writeCmValueByNamespaceKey(ctx, oldState); err != nil {
+		if err := c.writeCmValueByNamespaceKey(ctx, cmCurrentState); err != nil {
 			return err
 		}
 	}
