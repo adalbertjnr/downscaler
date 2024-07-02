@@ -8,17 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adalbertjnr/downscaler/shared"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func extractSegments(raw []string) ([]string, string) {
-	cmData := make([]string, len(raw))
-	for i, value := range raw {
+func extractSegments(apps shared.Apps) []string {
+	cmData := make([]string, len(apps.State))
+	for i, value := range apps.State {
 		parts := strings.Split(value, ",")
 		cmData[i] = fmt.Sprintf("%s,%s,%s", parts[1], parts[2], parts[3])
 	}
 
-	return cmData, strings.Split(raw[0], ",")[0]
+	return cmData
 }
 
 func getNamespaceWithYamlExt(namespace string) string {
