@@ -2,12 +2,55 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/adalbertjnr/downscaler/shared"
+	v1 "k8s.io/api/apps/v1"
 )
+
+func filterDeploymentsByNamespace(ctx context.Context, namespaces []string, k KubernetesImpl) map[string]*v1.Deployment {
+	deploymentListMap := make(map[string]*v1.Deployment)
+	for _, namespace := range namespaces {
+		deploymentList := k.GetDeployments(ctx, namespace)
+
+		for _, deployment := range deploymentList.Items {
+			deploymentListMap[deployment.Name] = &deployment
+		}
+	}
+
+	return deploymentListMap
+}
+
+func getMetadataReplicas(state string) (name string, replicas int32) {
+	parts := strings.Split(state, ",")
+	replicasInt, err := strconv.Atoi(parts[1])
+	if err != nil {
+		slog.Error("get replicas conversion error", "err", err)
+	}
+	deploymentName := parts[0]
+
+	return deploymentName, int32(replicasInt)
+}
+
+func generateScalePatch(updateScale int32) ([]byte, error) {
+	patch := struct {
+		Spec struct {
+			Replicas *int32 `json:"replicas"`
+		} `json:"spec"`
+	}{
+		Spec: struct {
+			Replicas *int32 `json:"replicas"`
+		}{
+			Replicas: &updateScale,
+		},
+	}
+
+	return json.Marshal(patch)
+}
 
 func isNamespaceIgnored(namespace string, evicted shared.NotUsableNamespacesDuringScheduling) bool {
 	if _, exists := evicted.IgnoredNamespaces[namespace]; exists {

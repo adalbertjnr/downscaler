@@ -202,7 +202,7 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 				continue
 			}
 
-			currentReplicasState, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces, task.ScheduledNamespaces)
+			currentReplicasState, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces)
 
 			if err != nil && currentReplicasState == shared.InspectError {
 				continue
@@ -266,9 +266,8 @@ func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
 	}
 }
 
-func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces []string, scheduledNamespaces map[string]struct{}) (shared.TaskControl, error) {
+func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces []string) (shared.TaskControl, error) {
 	if c.input.RunUpscaling {
-		c.mu.Lock()
 		namespaceState := make(map[string]shared.Apps)
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
 
@@ -283,17 +282,13 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 			notEmptyIndex   int = 0
 		)
 
-		if cm.Data == nil {
+		if !namespaceIndexAvailable(namespaces, cm) {
 			return shared.AppStartupWithNoDataWrite, nil
 		}
 
-		for namespace, metadata := range namespaceState {
+		for _, metadata := range namespaceState {
 			if metadata.State == nil && metadata.Status == shared.EmptyNamespace {
 				continue
-			}
-
-			if cm.Data[namespace] == "" {
-				return shared.AppStartupWithNoDataWrite, nil
 			}
 
 			sum, count, err := parseReplicaState(metadata.State)
@@ -312,7 +307,6 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithUpscaledState) {
 			return shared.DeploymentsWithUpscaledState, nil
 		}
-		c.mu.Unlock()
 	}
 	return shared.UpscalingDeactivated, nil
 }
@@ -404,7 +398,7 @@ func (c *Cron) handleDownscaling(task CronTask, namespaces []string) {
 	toCmCurrentState := c.Kubernetes.StartDownscaling(c.ctx, namespaces, notUsableNamespaces)
 	err := c.writeOldStateDeploymentsReplicas(c.ctx, toCmCurrentState)
 	if err != nil {
-		slog.Error("error writing the old state replicas", "error", err)
+		slog.Error("error writing state after downscaling", "err", err)
 	}
 }
 
@@ -417,7 +411,7 @@ func (c *Cron) handleUpscaling(task CronTask, stopch chan struct{}, namespaces [
 			now := c.now()
 			targetTimeToUpscale, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
 
-			response, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces, task.ScheduledNamespaces)
+			response, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces)
 			if err != nil && response == shared.InspectError {
 				continue
 			}
@@ -430,7 +424,10 @@ func (c *Cron) handleUpscaling(task CronTask, stopch chan struct{}, namespaces [
 			//replicas available to upscaling which means
 			// all deployments replicas are equals 0
 			if response == shared.DeploymentsWithDownscaledState {
-				// c.Kubernetes.StartUpscaling(c.ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+				cmApps := c.Kubernetes.StartUpscaling(c.ctx, namespaces, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+				if err := c.writeCmValueByNamespaceKey(c.ctx, cmApps); err != nil {
+					slog.Error("error writing state after upscaling", "err", err)
+				}
 				//handle upscaling
 				//writeReplicas
 				//change replicas to > 0
