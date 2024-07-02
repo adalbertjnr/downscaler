@@ -5,6 +5,9 @@ const (
 	Resource = "downscalers"
 	Group    = "scheduler.go"
 
+	EmptyNamespace    = "empty"
+	NotEmptyNamespace = "not_empty"
+
 	DownscalerNamespace = "downscaler"
 	Unspecified         = "unspecified"
 
@@ -29,8 +32,9 @@ const (
 )
 
 type Apps struct {
-	Group string   `yaml:"group"`
-	State []string `yaml:"state"`
+	Status string   `yaml:"status"`
+	Group  string   `yaml:"group"`
+	State  []string `yaml:"state"`
 }
 
 type Metadata struct {

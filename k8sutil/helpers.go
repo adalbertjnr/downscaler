@@ -40,11 +40,8 @@ func shouldSkipNamespace(namespace string, evictedNamespaces shared.NotUsableNam
 	return isNamespaceAlreadyScheduled(namespace, evictedNamespaces) || isNamespaceIgnored(namespace, evictedNamespaces) || isDownscalerNamespaceScheduledToDownscale(namespace)
 }
 
-func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group string) ([]string, error) {
+func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group string) (shared.Apps, error) {
 	deploymentsWithinNamespace := k.GetDeployments(ctx, namespace)
-	if len(deploymentsWithinNamespace.Items) == 0 {
-		return nil, fmt.Errorf("empty deployments in the current namespace %s", namespace)
-	}
 
 	deploymentAndReplicas := make([]string, len(deploymentsWithinNamespace.Items))
 	for i, deployment := range deploymentsWithinNamespace.Items {
@@ -58,7 +55,17 @@ func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group stri
 
 		k.ScaleDeployments(ctx, namespace, &deployment, patchBytes, updateScale)
 	}
-	return deploymentAndReplicas, nil
+
+	status := shared.NotEmptyNamespace
+	if len(deploymentAndReplicas) == 0 {
+		status = shared.EmptyNamespace
+	}
+
+	return shared.Apps{
+		Status: status,
+		Group:  group,
+		State:  deploymentAndReplicas,
+	}, nil
 }
 
 func downscaleTheDownscaler(ctx context.Context, k Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling) {

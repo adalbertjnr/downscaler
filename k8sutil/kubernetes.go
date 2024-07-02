@@ -25,7 +25,7 @@ type Kubernetes interface {
 	GetDownscalerData(ctx context.Context, gv schema.GroupVersionResource) (*shared.DownscalerPolicy, error)
 	ScaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment, patch []byte, updateScale int32)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
-	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling) map[string][]string
+	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling) map[string]shared.Apps
 	// StartUpscaling(ctx context.Context, cmName, cmNamespace string)
 	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
 	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
@@ -203,8 +203,8 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 // }
 
 func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, evicted shared.NotUsableNamespacesDuringScheduling,
-) map[string][]string {
-	deploymentStateByNamespace := make(map[string][]string)
+) map[string]shared.Apps {
+	deploymentStateByNamespace := make(map[string]shared.Apps)
 	for _, namespace := range namespaces {
 		if isNamespaceIgnored(namespace, evicted) {
 			continue
@@ -219,7 +219,7 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 	return deploymentStateByNamespace
 }
 
-func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, cmCurrentState map[string][]string) map[string][]string {
+func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, cmCurrentState map[string]shared.Apps) map[string]shared.Apps {
 	clusterNamespaces := k8sClient.GetNamespaces(ctx)
 	for _, clusterNamespace := range clusterNamespaces {
 		if shouldSkipNamespace(clusterNamespace, evictedNamespaces) {
