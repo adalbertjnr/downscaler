@@ -12,6 +12,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func namespaceIndexAvailable(namespaces []string, cm *corev1.ConfigMap) bool {
+	if cm.Data == nil {
+		return false
+	}
+
+	for _, taskNamespace := range namespaces {
+		if cm.Data[taskNamespace+".yaml"] == "" {
+			if taskNamespace == shared.Unspecified {
+				continue
+			}
+			return false
+		}
+	}
+
+	return true
+}
+
 func extractSegments(apps shared.Apps) []string {
 	cmData := make([]string, len(apps.State))
 	for i, value := range apps.State {
