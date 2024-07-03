@@ -74,6 +74,32 @@ type DownscalerPolicy struct {
 	} `yaml:"spec"`
 }
 
+func (n NotUsableNamespacesDuringScheduling) Validate(namespaces []string) bool {
+	for _, namespace := range namespaces {
+		if namespace == Unspecified {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *NotUsableNamespacesDuringScheduling) ReplaceSpecialFlagWithNamespaces(clusterNamespaces []string, namespaces []string) []string {
+	toReplaceWith := make([]string, 0)
+
+	for _, clusterNamespace := range clusterNamespaces {
+		if _, found := n.IgnoredNamespaces[clusterNamespace]; found {
+			continue
+		}
+		if _, found := n.ScheduledNamespaces[clusterNamespace]; found {
+			continue
+		}
+
+		toReplaceWith = append(toReplaceWith, clusterNamespace)
+	}
+
+	return toReplaceWith
+}
+
 type NotUsableNamespacesDuringScheduling struct {
 	IgnoredNamespaces   map[string]struct{}
 	ScheduledNamespaces map[string]struct{}

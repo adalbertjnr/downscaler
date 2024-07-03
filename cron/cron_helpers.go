@@ -19,9 +19,6 @@ func namespaceIndexAvailable(namespaces []string, cm *corev1.ConfigMap) bool {
 
 	for _, taskNamespace := range namespaces {
 		if cm.Data[taskNamespace+".yaml"] == "" {
-			if taskNamespace == shared.Unspecified {
-				continue
-			}
 			return false
 		}
 	}
@@ -33,7 +30,7 @@ func extractSegments(apps shared.Apps) []string {
 	cmData := make([]string, len(apps.State))
 	for i, value := range apps.State {
 		parts := strings.Split(value, ",")
-		cmData[i] = fmt.Sprintf("%s,%s,%s", parts[1], parts[2], parts[3])
+		cmData[i] = fmt.Sprintf("%s,%s,%s", parts[0], parts[1], parts[2])
 	}
 
 	return cmData

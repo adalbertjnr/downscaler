@@ -25,7 +25,7 @@ type Kubernetes interface {
 	ScaleDeployments(ctx context.Context, namespace string, deployment *v1.Deployment, patch []byte, updateScale int32)
 	GetWatcherByDownscalerCRD(ctx context.Context, name, namespace string) (watch.Interface, error)
 	StartDownscaling(ctx context.Context, namespaces []string, is shared.NotUsableNamespacesDuringScheduling) map[string]shared.Apps
-	StartUpscaling(ctx context.Context, namespaces []string, cmName, cmNamespace string) map[string]shared.Apps
+	StartUpscaling(ctx context.Context, scheduledNamespaces map[string]struct{}, namespaces []string, cmName, cmNamespace string) []map[string]shared.Apps
 	ListConfigMap(ctx context.Context, name, namespace string) *corev1.ConfigMap
 	PatchConfigMap(ctx context.Context, name, namespace string, patch []byte)
 	CreateConfigMap(ctx context.Context, name, namespace string) error
@@ -163,32 +163,35 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 	return watcher, nil
 }
 
-func (k KubernetesImpl) StartUpscaling(ctx context.Context, namespaces []string, cmName, cmNamespace string) map[string]shared.Apps {
+func (k KubernetesImpl) StartUpscaling(ctx context.Context, scheduledNamespaces map[string]struct{}, namespaces []string, cmName, cmNamespace string) []map[string]shared.Apps {
 	cm := k.ListConfigMap(ctx, cmName, cmNamespace)
+	sliceToWrite := make([]map[string]shared.Apps, len(namespaces))
 
 	apps := make(map[string]shared.Apps)
 	if err := helpers.UnmarshalDataPolicy(cm, apps); err != nil {
 		slog.Error("unmarshal cm apps", "err", err)
 	}
+
+	if unspecified := validateIfUnspecified(namespaces); unspecified {
+		ns := availableNamespacesIfUnspecified(apps, scheduledNamespaces)
+		namespaces = ns
+	}
+
 	deploymentMapList := filterDeploymentsByNamespace(ctx, namespaces, k)
+	extractedStateByNamespaces := extractIndexByNamespaces(apps, namespaces)
 
 	for _, namespace := range namespaces {
-		if cmValue, found := apps[namespace+".yaml"]; found {
-			for _, cmStoredState := range cmValue.State {
-				cmDeploymentName, cmDeploymentReplicas := getMetadataReplicas(cmStoredState)
-				patch, err := generateScalePatch(cmDeploymentReplicas)
-				if err != nil {
-					slog.Error("generating patch error", "err", err)
-					continue
-				}
-
-				deployment := deploymentMapList[cmDeploymentName]
-				k.ScaleDeployments(ctx, namespace, deployment, patch, cmDeploymentReplicas)
-			}
+		if cmValue, found := extractedStateByNamespaces[namespace+".yaml"]; found {
+			indexToWrite := runUpscalingByDeploymentNameStateIndex(ctx, k,
+				namespace,
+				cmValue,
+				deploymentMapList,
+			)
+			sliceToWrite = append(sliceToWrite, indexToWrite)
 		}
 	}
 
-	return apps
+	return sliceToWrite
 }
 
 func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []string, evicted shared.NotUsableNamespacesDuringScheduling,

@@ -180,6 +180,16 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 		recurrenceDays = parseRecurrence(recurrence)
 	)
 
+	unspecified := shared.NotUsableNamespacesDuringScheduling{
+		IgnoredNamespaces:   c.IgnoredNamespaces,
+		ScheduledNamespaces: task.ScheduledNamespaces,
+	}
+
+	if present := unspecified.Validate(namespaces); present {
+		clusterNamespaces := c.Kubernetes.GetNamespaces(c.ctx)
+		namespaces = unspecified.ReplaceSpecialFlagWithNamespaces(clusterNamespaces, namespaces)
+	}
+
 	for {
 		select {
 		case <-stopch:
@@ -327,6 +337,7 @@ func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context,
 }
 
 func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
+	fmt.Println(cmCurrentState)
 	for namespace := range cmCurrentState {
 		var (
 			namespaceKey   = getNamespaceWithYamlExt(namespace)
@@ -416,28 +427,20 @@ func (c *Cron) handleUpscaling(task CronTask, stopch chan struct{}, namespaces [
 				continue
 			}
 
-			if now.Before(targetTimeToUpscale) || (now.After(targetTimeToDownscale) || response == shared.DeploymentsWithUpscaledState) {
+			if now.Before(targetTimeToUpscale) || now.After(targetTimeToDownscale) {
 				logWaitAfterDownscalingWithSleep(now, targetTimeToUpscale, namespaces)
 				continue
 			}
 
-			//replicas available to upscaling which means
-			// all deployments replicas are equals 0
 			if response == shared.DeploymentsWithDownscaledState {
-				cmApps := c.Kubernetes.StartUpscaling(c.ctx, namespaces, c.input.ConfigMapName, c.input.ConfigMapNamespace)
-				if err := c.writeCmValueByNamespaceKey(c.ctx, cmApps); err != nil {
-					slog.Error("error writing state after upscaling", "err", err)
+				cmAppsSlice := c.Kubernetes.StartUpscaling(c.ctx, task.ScheduledNamespaces, namespaces, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+				for _, cmApps := range cmAppsSlice {
+					if err := c.writeCmValueByNamespaceKey(c.ctx, cmApps); err != nil {
+						slog.Error("error writing state after upscaling", "err", err)
+					}
 				}
-				//handle upscaling
-				//writeReplicas
-				//change replicas to > 0
-				//overriding current state to DeploymentsWithUpscaledState
 				return shared.RestartRoutine
 			}
-
-			//replicas are not available to upscaling which means
-			// all deployments replicas are > 0
-			return shared.RestartRoutine
 		}
 	}
 }
