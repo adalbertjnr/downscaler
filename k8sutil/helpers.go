@@ -125,30 +125,6 @@ func isNamespaceIgnored(namespace string, evicted shared.NotUsableNamespacesDuri
 	return false
 }
 
-func isNamespaceAlreadyScheduled(namespace string, evicted shared.NotUsableNamespacesDuringScheduling) bool {
-	if _, exists := evicted.ScheduledNamespaces[namespace]; exists {
-		return true
-	}
-	return false
-}
-
-func isDownscalerNamespaceScheduledToDownscale(namespace string) bool {
-	if strings.EqualFold(namespace, shared.DownscalerNamespace) {
-		slog.Info("downscaling message",
-			"the found namespace", namespace,
-			"match the downscaler namespace", shared.DownscalerNamespace,
-			"status", "not ignored during scheduling",
-			"action", "will be last downscaled namespace",
-		)
-		return true
-	}
-	return false
-}
-
-func shouldSkipNamespace(namespace string, evictedNamespaces shared.NotUsableNamespacesDuringScheduling) bool {
-	return isNamespaceAlreadyScheduled(namespace, evictedNamespaces) || isNamespaceIgnored(namespace, evictedNamespaces) || isDownscalerNamespaceScheduledToDownscale(namespace)
-}
-
 func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group string) (shared.Apps, error) {
 	deploymentsWithinNamespace := k.GetDeployments(ctx, namespace)
 

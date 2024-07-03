@@ -201,28 +201,11 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 		if isNamespaceIgnored(namespace, evicted) {
 			continue
 		}
-		if namespace == shared.Unspecified {
-			cmCurrentState := invokeUnspecifiedNamespaces(ctx, k, evicted, deploymentStateByNamespace)
-			return cmCurrentState
-		}
 		deploymentAndReplicasFingerprint, _ := downscaleNamespace(ctx, k, namespace, shared.DefaultGroup)
 		deploymentStateByNamespace[namespace] = deploymentAndReplicasFingerprint
-	}
-	return deploymentStateByNamespace
-}
 
-func invokeUnspecifiedNamespaces(ctx context.Context, k8sClient Kubernetes, evictedNamespaces shared.NotUsableNamespacesDuringScheduling, cmCurrentState map[string]shared.Apps) map[string]shared.Apps {
-	clusterNamespaces := k8sClient.GetNamespaces(ctx)
-	for _, clusterNamespace := range clusterNamespaces {
-		if shouldSkipNamespace(clusterNamespace, evictedNamespaces) {
-			continue
-		}
-		deploymentAndReplicasFringerprint, err := downscaleNamespace(ctx, k8sClient, clusterNamespace, shared.UnspecifiedGroup)
-		if err != nil {
-			continue
-		}
-		cmCurrentState[clusterNamespace] = deploymentAndReplicasFringerprint
+		downscaleTheDownscaler(ctx, k, evicted)
 	}
-	downscaleTheDownscaler(ctx, k8sClient, evictedNamespaces)
-	return cmCurrentState
+	fmt.Println(deploymentStateByNamespace)
+	return deploymentStateByNamespace
 }
