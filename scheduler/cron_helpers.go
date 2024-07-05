@@ -1,4 +1,4 @@
-package cron
+package scheduler
 
 import (
 	"encoding/json"
@@ -71,7 +71,7 @@ func parseReplicaState(deploymentWithState []string) (int, int, error) {
 	return replicaCountSum, notEmptyIndex, nil
 }
 
-func separatedScheduledNamespaces(rules DownscalerRules) map[string]struct{} {
+func separatedScheduledNamespaces(rules shared.DownscalerRules) map[string]struct{} {
 	scheduledNamespaces := make([]string, 0)
 	for _, criteria := range rules.Rules {
 		scheduledNamespaces = append(scheduledNamespaces, criteria.Namespaces...)
@@ -96,7 +96,7 @@ func toStringWithFormat(from, now time.Time) (hourString, minuteString string) {
 	return hourString, minuteString
 }
 
-func fromUntil(rawTime string, loc *time.Location) (from, until time.Time) {
+func extractUpscalingAndDownscalingTime(rawTime string, loc *time.Location) (from, until time.Time) {
 	var err error
 	parts := strings.SplitN(rawTime, "-", ExpectedTimeParts)
 	if len(parts) != ExpectedTimeParts {
@@ -177,7 +177,7 @@ func parseRecurrence(recurrence string) []time.Weekday {
 	return recurrenceDays
 }
 
-func (c *Cron) now() time.Time {
+func (c *Scheduler) now() time.Time {
 	return time.Now().In(c.Location)
 }
 

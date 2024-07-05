@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/adalbertjnr/downscaler/core"
-	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/kubeclient"
+	"github.com/adalbertjnr/downscaler/scheduler"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,14 +51,14 @@ func main() {
 
 	currentTz := retrieve.Timezone(policyData)
 
-	cronSvc := cron.NewCron().
+	schedulerSvc := scheduler.NewScheduler().
 		MustAddTimezoneLocation(currentTz).
 		AddKubeApiSvc(kubeApiSvc).
 		AddInput(args)
 
 	svc := core.NewController(ctx,
 		kubeApiSvc,
-		cronSvc,
+		schedulerSvc,
 		policyData,
 		watch,
 		args,

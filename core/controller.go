@@ -7,10 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
 	"github.com/adalbertjnr/downscaler/kas"
+	"github.com/adalbertjnr/downscaler/scheduler"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
 
@@ -20,7 +20,7 @@ import (
 
 type Controller struct {
 	client            kas.Kubernetes
-	cron              cron.Cron
+	scheduler         scheduler.Scheduler
 	rtObjectch        chan runtime.Object
 	cmObjectch        chan shared.DownscalerPolicy
 	ctx               context.Context
@@ -32,7 +32,7 @@ type Controller struct {
 
 func NewController(ctx context.Context,
 	client kas.Kubernetes,
-	cron *cron.Cron,
+	scheduler *scheduler.Scheduler,
 	initialCronConfig *shared.DownscalerPolicy,
 	watch *watcher.Watcher,
 	input *input.FromArgs,
@@ -40,7 +40,7 @@ func NewController(ctx context.Context,
 	context, cancel := context.WithCancel(ctx)
 	return &Controller{
 		client:            client,
-		cron:              *cron,
+		scheduler:         *scheduler,
 		initialCronConfig: initialCronConfig,
 		rtObjectch:        make(chan runtime.Object, 1),
 		cmObjectch:        make(chan shared.DownscalerPolicy, 1),
@@ -55,7 +55,7 @@ func (c *Controller) updateNewCronLoop() {
 	for {
 		select {
 		case cmDataPolicy := <-c.cmObjectch:
-			c.cron.AddCronDetails(&cmDataPolicy)
+			c.scheduler.AddSchedulerDetails(&cmDataPolicy)
 		case <-c.ctx.Done():
 			return
 		}
@@ -65,7 +65,7 @@ func (c *Controller) updateNewCronLoop() {
 func (c *Controller) StartDownscaler() {
 	go c.ReceiveNewConfigMapData()
 	go c.updateNewCronLoop()
-	go c.cron.StartCron()
+	go c.scheduler.StartScheduler()
 
 	slog.Info("downscaler initialization", "status", "initialized")
 

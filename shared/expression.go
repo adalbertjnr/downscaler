@@ -1,4 +1,4 @@
-package cron
+package shared
 
 import "log/slog"
 
@@ -10,11 +10,11 @@ type DownscalerExpression struct {
 	} `yaml:"matchExpressions"`
 }
 
-func (v *DownscalerExpression) withExclude() bool {
+func (v *DownscalerExpression) WithExclude() bool {
 	return v.MatchExpressions.Operator == "exclude"
 }
 
-func (v *DownscalerExpression) showIgnoredNamespaces(ignoredNamespaces []string) map[string]struct{} {
+func (v *DownscalerExpression) ShowIgnoredNamespaces(ignoredNamespaces []string) map[string]struct{} {
 	if len(ignoredNamespaces) > 0 {
 		excludeNamespaceMap := make(map[string]struct{})
 		for _, namespace := range ignoredNamespaces {
@@ -43,6 +43,6 @@ type DownscalerRules struct {
 	} `yaml:"rules"`
 }
 
-func (v *DownscalerRules) available() bool {
+func (v *DownscalerRules) Available() bool {
 	return len(v.Rules) > 0
 }

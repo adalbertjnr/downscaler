@@ -206,6 +206,5 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 
 		downscaleTheDownscaler(ctx, k, evicted)
 	}
-	fmt.Println(deploymentStateByNamespace)
 	return deploymentStateByNamespace
 }

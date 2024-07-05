@@ -1,4 +1,4 @@
-package cron
+package scheduler
 
 import (
 	"context"
@@ -29,27 +29,27 @@ type Rules struct {
 	ScheduledNamespaces map[string]struct{}
 }
 
-type CronTask struct {
+type SchedulerTask struct {
 	Rules
 }
 
-type Cron struct {
+type Scheduler struct {
 	Kubernetes        kas.Kubernetes
 	Location          *time.Location
-	Tasks             []CronTask
+	Tasks             []SchedulerTask
 	Recurrence        string
 	IgnoredNamespaces map[string]struct{}
 	taskRoutines      map[string]chan struct{}
-	taskch            chan []CronTask
+	taskch            chan []SchedulerTask
 	stopch            chan struct{}
 	input             *input.FromArgs
 	mu                sync.Mutex
 	ctx               context.Context
 }
 
-func NewCron() *Cron {
-	return &Cron{
-		taskch:       make(chan []CronTask),
+func NewScheduler() *Scheduler {
+	return &Scheduler{
+		taskch:       make(chan []SchedulerTask),
 		stopch:       make(chan struct{}),
 		taskRoutines: make(map[string]chan struct{}),
 		mu:           sync.Mutex{},
@@ -57,17 +57,17 @@ func NewCron() *Cron {
 	}
 }
 
-func (c *Cron) AddKubeApiSvc(client kas.Kubernetes) *Cron {
+func (c *Scheduler) AddKubeApiSvc(client kas.Kubernetes) *Scheduler {
 	c.Kubernetes = client
 	return c
 }
 
-func (c *Cron) AddInput(input *input.FromArgs) *Cron {
+func (c *Scheduler) AddInput(input *input.FromArgs) *Scheduler {
 	c.input = input
 	return c
 }
 
-func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
+func (c *Scheduler) AddSchedulerDetails(downscalerData *shared.DownscalerPolicy) {
 	if errors := c.Validate(downscalerData); len(errors) > 0 {
 		for _, err := range errors {
 			slog.Error("crontime validator", "error", err)
@@ -87,38 +87,38 @@ func (c *Cron) AddCronDetails(downscalerData *shared.DownscalerPolicy) {
 		return
 	}
 
-	c.parseCronConfig(
+	c.parseSchedulerConfig(
 		recurrence,
-		DownscalerExpression{MatchExpressions: expression},
-		DownscalerRules{Rules: rules},
+		shared.DownscalerExpression{MatchExpressions: expression},
+		shared.DownscalerRules{Rules: rules},
 	)
 
 }
 
-func (c *Cron) parseCronConfig(
+func (c *Scheduler) parseSchedulerConfig(
 	recurrence string,
-	expression DownscalerExpression,
-	rules DownscalerRules,
+	expression shared.DownscalerExpression,
+	rules shared.DownscalerRules,
 ) {
 
 	if !stillSameRecurrenceTime(recurrence, c.Recurrence) {
 		c.Recurrence = recurrence
 	}
 
-	if expression.withExclude() {
+	if expression.WithExclude() {
 		expressionValues := expression.MatchExpressions.Values
 		excludedNamespaces := append([]string{}, expressionValues...)
-		ignoredNamespaces := expression.showIgnoredNamespaces(excludedNamespaces)
+		ignoredNamespaces := expression.ShowIgnoredNamespaces(excludedNamespaces)
 
 		c.ignoredNamespacesCleanupValidation(ignoredNamespaces)
 	}
 
-	if rules.available() {
-		tasks := make([]CronTask, len(rules.Rules))
+	if rules.Available() {
+		tasks := make([]SchedulerTask, len(rules.Rules))
 
 		scheduledNamespaces := separatedScheduledNamespaces(rules)
 		for i, crit := range rules.Rules {
-			tasks[i] = CronTask{
+			tasks[i] = SchedulerTask{
 				Rules: Rules{
 					Namespaces:          crit.Namespaces,
 					WithCron:            crit.WithCron,
@@ -127,16 +127,16 @@ func (c *Cron) parseCronConfig(
 				},
 			}
 		}
-		c.killCurrentCronRoutines()
+		c.killCurrentSchedulerRoutines()
 		c.taskch <- tasks
 	}
 }
 
-func (c *Cron) StartCron() {
-	c.runCronLoop()
+func (c *Scheduler) StartScheduler() {
+	c.runSchedulerLoop()
 }
 
-func (c *Cron) runCronLoop() {
+func (c *Scheduler) runSchedulerLoop() {
 	for {
 		if tasks, open := <-c.taskch; open {
 			c.updateTasks(tasks)
@@ -146,8 +146,8 @@ func (c *Cron) runCronLoop() {
 	}
 }
 
-func (c *Cron) updateTasks(tasks []CronTask) {
-	newTaskMap := make(map[string]CronTask)
+func (c *Scheduler) updateTasks(tasks []SchedulerTask) {
+	newTaskMap := make(map[string]SchedulerTask)
 
 	for _, task := range tasks {
 		key := task.Rules.WithCron + strings.Join(task.Namespaces, ",")
@@ -163,7 +163,7 @@ func (c *Cron) updateTasks(tasks []CronTask) {
 	}
 }
 
-func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
+func (c *Scheduler) runTasks(task SchedulerTask, stopch chan struct{}) {
 	slog.Info("task", "provided namespace(s)", task.Namespaces, "period time", task.WithCron,
 		"recurrence", task.Recurrence, "status", "initializing",
 	)
@@ -195,7 +195,7 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 		case <-stopch:
 			return
 		default:
-			_, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
+			targetTimeToUpscale, targetTimeToDownscale := extractUpscalingAndDownscalingTime(task.WithCron, c.Location)
 			now := c.now()
 
 			if !c.isRecurrenceDay(now.Weekday(), recurrenceDays) {
@@ -203,18 +203,18 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 				continue
 			}
 
-			if valid := c.validateCronNamespaces(c.ctx, namespaces); !valid {
-				continue
-			}
-
-			if now.Before(targetTimeToDownscale) {
-				logWaitBeforeDownscalingWithSleep(now, targetTimeToDownscale, namespaces)
+			if valid := c.validateSchedulerNamespaces(c.ctx, namespaces); !valid {
 				continue
 			}
 
 			currentReplicasState, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces)
-
 			if err != nil && currentReplicasState == shared.InspectError {
+				slog.Error("inspect replicas by namespace error", "err", err)
+				continue
+			}
+
+			if validateIfShouldRunDownscalingOrWait(now, currentReplicasState, targetTimeToDownscale, targetTimeToUpscale) {
+				logWaitBeforeDownscalingWithSleep(now, targetTimeToDownscale, namespaces)
 				continue
 			}
 
@@ -242,7 +242,7 @@ func (c *Cron) runTasks(task CronTask, stopch chan struct{}) {
 
 }
 
-func (c *Cron) killCurrentCronRoutines() {
+func (c *Scheduler) killCurrentSchedulerRoutines() {
 	if len(c.taskRoutines) > 0 {
 		for key, stopch := range c.taskRoutines {
 			delete(c.taskRoutines, key)
@@ -251,7 +251,7 @@ func (c *Cron) killCurrentCronRoutines() {
 	}
 }
 
-func (c *Cron) MustAddTimezoneLocation(timeZone string) *Cron {
+func (c *Scheduler) MustAddTimezoneLocation(timeZone string) *Scheduler {
 	location, err := time.LoadLocation(timeZone)
 	if err != nil {
 		panic(err)
@@ -261,7 +261,7 @@ func (c *Cron) MustAddTimezoneLocation(timeZone string) *Cron {
 	return c
 }
 
-func (c *Cron) isRecurrenceDay(day time.Weekday, recurrenceDays []time.Weekday) bool {
+func (c *Scheduler) isRecurrenceDay(day time.Weekday, recurrenceDays []time.Weekday) bool {
 	for _, recurrenceDay := range recurrenceDays {
 		if day == recurrenceDay {
 			return true
@@ -270,13 +270,13 @@ func (c *Cron) isRecurrenceDay(day time.Weekday, recurrenceDays []time.Weekday) 
 	return false
 }
 
-func (c *Cron) updateRecurrenceIfEmpty(recurrence string) {
+func (c *Scheduler) updateRecurrenceIfEmpty(recurrence string) {
 	if c.Recurrence == "" {
 		c.Recurrence = recurrence
 	}
 }
 
-func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces []string) (shared.TaskControl, error) {
+func (c *Scheduler) inspectReplicasStateByNamespace(ctx context.Context, namespaces []string) (shared.TaskControl, error) {
 	if c.input.RunUpscaling {
 		namespaceState := make(map[string]shared.Apps)
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
@@ -321,7 +321,7 @@ func (c *Cron) inspectReplicasStateByNamespace(ctx context.Context, namespaces [
 	return shared.UpscalingDeactivated, nil
 }
 
-func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context, cmCurrentState map[string]shared.Apps, cmData map[string]string) error {
+func (c *Scheduler) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context, cmCurrentState map[string]shared.Apps, cmData map[string]string) error {
 	for namespace := range cmCurrentState {
 		namespaceYamlKey := getNamespaceWithYamlExt(namespace)
 		if _, exists := cmData[namespaceYamlKey]; !exists {
@@ -336,8 +336,7 @@ func (c *Cron) checkIfNamespaceExistsInConfigMapBeforeWrite(ctx context.Context,
 	return nil
 }
 
-func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
-	fmt.Println(cmCurrentState)
+func (c *Scheduler) writeCmValueByNamespaceKey(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
 	for namespace := range cmCurrentState {
 		var (
 			namespaceKey   = getNamespaceWithYamlExt(namespace)
@@ -368,7 +367,7 @@ func (c *Cron) writeCmValueByNamespaceKey(ctx context.Context, cmCurrentState ma
 	return nil
 }
 
-func (c *Cron) writeOldStateDeploymentsReplicas(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
+func (c *Scheduler) writeOldStateDeploymentsReplicas(ctx context.Context, cmCurrentState map[string]shared.Apps) error {
 	if c.input.RunUpscaling {
 		currentCm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
 		err := c.checkIfNamespaceExistsInConfigMapBeforeWrite(ctx, cmCurrentState, currentCm.Data)
@@ -383,7 +382,7 @@ func (c *Cron) writeOldStateDeploymentsReplicas(ctx context.Context, cmCurrentSt
 	return nil
 }
 
-func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
+func (c *Scheduler) updateTimeZoneIfNotEqual(timezone string) error {
 	if !strings.EqualFold(c.Location.String(), timezone) {
 		location, err := time.LoadLocation(timezone)
 		if err != nil {
@@ -400,7 +399,7 @@ func (c *Cron) updateTimeZoneIfNotEqual(timezone string) error {
 	return nil
 }
 
-func (c *Cron) handleDownscaling(task CronTask, namespaces []string) {
+func (c *Scheduler) handleDownscaling(task SchedulerTask, namespaces []string) {
 	notUsableNamespaces := shared.NotUsableNamespacesDuringScheduling{
 		IgnoredNamespaces:   c.IgnoredNamespaces,
 		ScheduledNamespaces: task.ScheduledNamespaces,
@@ -413,21 +412,22 @@ func (c *Cron) handleDownscaling(task CronTask, namespaces []string) {
 	}
 }
 
-func (c *Cron) handleUpscaling(task CronTask, stopch chan struct{}, namespaces []string) shared.TaskControl {
+func (c *Scheduler) handleUpscaling(task SchedulerTask, stopch chan struct{}, namespaces []string) shared.TaskControl {
 	for {
 		select {
 		case <-stopch:
 			return shared.KillCurrentRoutine
 		default:
 			now := c.now()
-			targetTimeToUpscale, targetTimeToDownscale := fromUntil(task.WithCron, c.Location)
+			targetTimeToUpscale, targetTimeToDownscale := extractUpscalingAndDownscalingTime(task.WithCron, c.Location)
 
 			response, err := c.inspectReplicasStateByNamespace(c.ctx, namespaces)
 			if err != nil && response == shared.InspectError {
+				slog.Error("inspect replicas by namespace error", "err", err)
 				continue
 			}
 
-			if now.Before(targetTimeToUpscale) || now.After(targetTimeToDownscale) {
+			if validateIfShoudRunUpscalingOrWait(now, targetTimeToUpscale, targetTimeToDownscale) {
 				logWaitAfterDownscalingWithSleep(now, targetTimeToUpscale, namespaces)
 				continue
 			}
