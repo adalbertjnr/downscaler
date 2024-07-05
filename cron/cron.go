@@ -11,7 +11,7 @@ import (
 
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
-	k8s "github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/shared"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +34,7 @@ type CronTask struct {
 }
 
 type Cron struct {
-	Kubernetes        k8s.Kubernetes
+	Kubernetes        kas.Kubernetes
 	Location          *time.Location
 	Tasks             []CronTask
 	Recurrence        string
@@ -57,7 +57,7 @@ func NewCron() *Cron {
 	}
 }
 
-func (c *Cron) AddKubeApiSvc(client k8s.Kubernetes) *Cron {
+func (c *Cron) AddKubeApiSvc(client kas.Kubernetes) *Cron {
 	c.Kubernetes = client
 	return c
 }

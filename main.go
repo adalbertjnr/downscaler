@@ -7,7 +7,7 @@ import (
 	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
-	k8s "github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/kubeclient"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
@@ -35,7 +35,7 @@ func main() {
 		Group:    shared.Group,
 	}
 
-	kubeApiSvc := k8s.NewKubernetes(client, dynamicClient)
+	kubeApiSvc := kas.NewKubernetes(client, dynamicClient)
 
 	policyData, err := kubeApiSvc.GetDownscalerData(ctx, scm)
 	if err != nil {

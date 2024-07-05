@@ -10,7 +10,7 @@ import (
 	"github.com/adalbertjnr/downscaler/cron"
 	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
-	k8s "github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
 
@@ -19,7 +19,7 @@ import (
 )
 
 type Controller struct {
-	client            k8s.Kubernetes
+	client            kas.Kubernetes
 	cron              cron.Cron
 	rtObjectch        chan runtime.Object
 	cmObjectch        chan shared.DownscalerPolicy
@@ -31,7 +31,7 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context,
-	client k8s.Kubernetes,
+	client kas.Kubernetes,
 	cron *cron.Cron,
 	initialCronConfig *shared.DownscalerPolicy,
 	watch *watcher.Watcher,
