@@ -28,6 +28,8 @@ func TestBeforeDownscalingValidation(t *testing.T) {
 		{"With upscaledState (already init but the app did break in some moment before midnight)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 07, 50, 0, 0, location), true},
 		{"With upscaledState (after downscaled state but it's going to downscale again in 10 minutes)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 21, 50, 0, 0, location), true},
 		{"With upscaledState (after downscaled state but it's going to downscale again now)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 22, 01, 0, 0, location), false},
+		{"With upscalingDeactivated (before downscaling time)", shared.UpscalingDeactivated, time.Date(now.Year(), now.Month(), now.Day(), 21, 05, 0, 0, location), true},
+		{"With upscalingDeactivated (after downscaling time)", shared.UpscalingDeactivated, time.Date(now.Year(), now.Month(), now.Day(), 22, 05, 0, 0, location), false},
 	}
 
 	for _, tt := range tests {

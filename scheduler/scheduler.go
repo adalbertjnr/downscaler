@@ -218,7 +218,7 @@ func (c *Scheduler) runTasks(task SchedulerTask, stopch chan struct{}) {
 				continue
 			}
 
-			if currentReplicasState == shared.DeploymentsWithUpscaledState || currentReplicasState == shared.AppStartupWithNoDataWrite {
+			if currentReplicasState == shared.DeploymentsWithUpscaledState || currentReplicasState == shared.AppStartupWithNoDataWrite || currentReplicasState == shared.UpscalingDeactivated {
 				c.handleDownscaling(task, namespaces)
 
 				next := c.handleUpscaling(task, stopch, namespaces)
