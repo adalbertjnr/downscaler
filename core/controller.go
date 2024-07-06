@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/internal/common"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/scheduler"
 	"github.com/adalbertjnr/downscaler/shared"
@@ -81,7 +81,7 @@ func (c *Controller) ReceiveNewConfigMapData() {
 			cm, converted := object.(*unstructured.Unstructured)
 			if converted {
 				data := &shared.DownscalerPolicy{}
-				err := helpers.UnmarshalDataPolicy(cm, data)
+				err := common.UnmarshalDataPolicy(cm, data)
 				if err != nil {
 					slog.Error("error unmarshaling the yaml data policy", "error", err.Error())
 				}

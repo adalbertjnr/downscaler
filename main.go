@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/adalbertjnr/downscaler/core"
-	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/internal/common"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/kubeclient"
 	"github.com/adalbertjnr/downscaler/scheduler"
@@ -27,8 +27,6 @@ func main() {
 	}
 	ctx := context.Background()
 
-	retrieve := helpers.New()
-
 	scm := schema.GroupVersionResource{
 		Version:  shared.Version,
 		Resource: shared.Resource,
@@ -49,7 +47,7 @@ func main() {
 	watch := watcher.New()
 	go watch.DownscalerKind(ctx, cmMetadata, kubeApiSvc)
 
-	currentTz := retrieve.Timezone(policyData)
+	currentTz := common.RetrieveTzFromData(policyData)
 
 	schedulerSvc := scheduler.NewScheduler().
 		MustAddTimezoneLocation(currentTz).

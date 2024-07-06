@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/adalbertjnr/downscaler/helpers"
 	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/internal/common"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/shared"
 	"gopkg.in/yaml.v2"
@@ -43,7 +42,6 @@ type Scheduler struct {
 	taskch            chan []SchedulerTask
 	stopch            chan struct{}
 	input             *input.FromArgs
-	mu                sync.Mutex
 	ctx               context.Context
 }
 
@@ -52,7 +50,6 @@ func NewScheduler() *Scheduler {
 		taskch:       make(chan []SchedulerTask),
 		stopch:       make(chan struct{}),
 		taskRoutines: make(map[string]chan struct{}),
-		mu:           sync.Mutex{},
 		ctx:          context.Background(),
 	}
 }
@@ -281,7 +278,7 @@ func (c *Scheduler) inspectReplicasStateByNamespace(ctx context.Context, namespa
 		namespaceState := make(map[string]shared.Apps)
 		cm := c.Kubernetes.ListConfigMap(ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
 
-		err := helpers.UnmarshalDataPolicy(cm, namespaceState)
+		err := common.UnmarshalDataPolicy(cm, namespaceState)
 		if err != nil {
 			slog.Error("error unmarshaling data time policy", "error", err)
 			return -1, err

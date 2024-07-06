@@ -1,8 +1,9 @@
-package helpers
+package common
 
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/adalbertjnr/downscaler/shared"
 	"gopkg.in/yaml.v2"
@@ -30,4 +31,8 @@ func UnmarshalDataPolicy(cm interface{}, data interface{}) error {
 		return yaml.Unmarshal([]byte(jsonData), data.(*shared.DownscalerPolicy))
 	}
 	return fmt.Errorf("error with the downscalercrd data")
+}
+
+func RetrieveTzFromData(data *shared.DownscalerPolicy) string {
+	return strings.TrimSpace(data.Spec.ExecutionOpts.Time.TimeZone)
 }

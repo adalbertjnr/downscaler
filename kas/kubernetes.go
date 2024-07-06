@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/adalbertjnr/downscaler/helpers"
+	"github.com/adalbertjnr/downscaler/internal/common"
 	"github.com/adalbertjnr/downscaler/shared"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -95,7 +95,7 @@ func (k KubernetesImpl) GetDownscalerData(ctx context.Context, gv schema.GroupVe
 
 	data := &shared.DownscalerPolicy{}
 	obj := &list.Items[0]
-	if err := helpers.UnmarshalDataPolicy(obj, data); err != nil {
+	if err := common.UnmarshalDataPolicy(obj, data); err != nil {
 		slog.Error("unmarshaling", "error", err)
 		return nil, err
 	}
@@ -153,13 +153,7 @@ func (k KubernetesImpl) GetWatcherByDownscalerCRD(ctx context.Context, name, nam
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher. downscaler name %s. err: %v", name, err)
 	}
-	slog.Info("watcher",
-		"group", shared.Group,
-		"version", shared.Version,
-		"resource", shared.Resource,
-		"verb", "watch",
-		"status", "created",
-	)
+	slog.Info("watcher", "group", shared.Group, "version", shared.Version, "resource", shared.Resource, "verb", "watch", "status", "created")
 	return watcher, nil
 }
 
@@ -168,7 +162,7 @@ func (k KubernetesImpl) StartUpscaling(ctx context.Context, scheduledNamespaces 
 	sliceToWrite := make([]map[string]shared.Apps, len(namespaces))
 
 	apps := make(map[string]shared.Apps)
-	if err := helpers.UnmarshalDataPolicy(cm, apps); err != nil {
+	if err := common.UnmarshalDataPolicy(cm, apps); err != nil {
 		slog.Error("unmarshal cm apps", "err", err)
 	}
 
