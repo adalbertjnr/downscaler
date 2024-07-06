@@ -30,7 +30,7 @@ func runUpscalingByDeploymentNameStateIndex(ctx context.Context, k KubernetesImp
 		newState = append(newState, stateAfterUpscaling)
 	}
 	return map[string]shared.Apps{
-		namespace + ".yaml": {
+		namespace: {
 			Status: cmValue.Status,
 			Group:  cmValue.Group,
 			State:  newState,
