@@ -20,3 +20,5 @@ spec:
         - name: downscaler-ctn
           image: adalbertjnr/downscaler:latest
           imagePullPolicy: Always
+          args:
+            - --run_upscaling=true

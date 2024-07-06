@@ -30,5 +30,5 @@ spec:
                   - "nginx-6"
                 withCron: "01:30-15:53"
               - namespaces:
-                  - "any-other"
+                  - "unspecified"
                 withCron: "01:30-15:57"
