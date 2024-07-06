@@ -24,6 +24,7 @@ func TestBeforeDownscalingValidation(t *testing.T) {
 		{"With no data write (first init, before midnight and after downscaling time)", shared.AppStartupWithNoDataWrite, time.Date(now.Year(), now.Month(), now.Day(), 23, 50, 0, 0, location), false},
 		{"With downscaledState (already init but the app did break in some moment before midnight)", shared.DeploymentsWithDownscaledState, time.Date(now.Year(), now.Month(), now.Day(), 23, 50, 0, 0, location), false},
 		{"With downscaledState (already init but the app did break in some moment after midnight but before upscaleTime)", shared.DeploymentsWithDownscaledState, time.Date(now.Year(), now.Month(), now.Day(), 05, 50, 0, 0, location), false},
+		{"With downscaledState (already init but the app did break exactly in the upscale time)", shared.DeploymentsWithDownscaledState, time.Date(now.Year(), now.Month(), now.Day(), 06, 01, 0, 0, location), false},
 		{"With upscaledState (already init but the app did break in some moment before midnight)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 07, 50, 0, 0, location), true},
 		{"With upscaledState (after downscaled state but it's going to downscale again in 10 minutes)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 21, 50, 0, 0, location), true},
 		{"With upscaledState (after downscaled state but it's going to downscale again now)", shared.DeploymentsWithUpscaledState, time.Date(now.Year(), now.Month(), now.Day(), 22, 01, 0, 0, location), false},

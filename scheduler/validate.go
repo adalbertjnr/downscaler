@@ -48,6 +48,9 @@ func validateIfShoudRunUpscalingOrWait(now, targetTimeToUpscale, targetTimeToDow
 }
 
 func validateIfShouldRunDownscalingOrWait(now time.Time, currentReplicasState shared.TaskControl, targetTimeToDownscale, targetTimeToUpscale time.Time) bool {
+	if currentReplicasState == shared.DeploymentsWithDownscaledState {
+		return false
+	}
 	firstCondition := now.After(targetTimeToUpscale) && currentReplicasState != shared.DeploymentsWithUpscaledState && now.Before(targetTimeToDownscale)
 	secondCondition := now.Before(targetTimeToDownscale) && currentReplicasState != shared.DeploymentsWithDownscaledState
 	return firstCondition || secondCondition
