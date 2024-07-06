@@ -54,13 +54,7 @@ func main() {
 		AddKubeApiSvc(kubeApiSvc).
 		AddInput(args)
 
-	svc := core.NewController(ctx,
-		kubeApiSvc,
-		schedulerSvc,
-		policyData,
-		watch,
-		args,
-	)
+	svc := core.NewController(ctx, kubeApiSvc, schedulerSvc, policyData, watch, args)
 
 	go svc.HandleSignals()
 
