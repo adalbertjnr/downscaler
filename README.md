@@ -2,7 +2,43 @@
 
 Project for downscale kubernetes deployments with time rules by namespaces
 
+### Deployment Example
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: downscaler
+  name: downscaler
+  namespace: downscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: downscaler
+  template:
+    metadata:
+      labels:
+        app: downscaler
+    spec:
+      serviceAccount: downscaler-sa
+      containers:
+        - name: downscaler-ctn
+          image: adalbertjnr/downscaler:latest
+          imagePullPolicy: Always
+          args:
+            - --run_upscaling=true
 
+```
+
+> [!NOTE]
+> the deployment supports an argument (run_upscaling true or false) which means that in the provided time in the example below 01:30 it will run the upscaling proccess.
+
+```yaml
+  withCron: "01:30-14:50"
+```
+
+### Downscaler Example
 ```yaml
 apiVersion: scheduler.go/v1
 kind: Downscaler
@@ -36,7 +72,7 @@ spec:
                 - "nginx-6"
                 withCron: "01:30-14:54"
               - namespaces:
-                - "any-other"
+                - "unspecified"
                 withCron: "01:30-14:56"
 ```
 
@@ -75,7 +111,7 @@ matchExpressions:
 - **withCron**: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
 
 > [!TIP]
->  **any-other**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
+>  **unspecified**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
 
 <br>
 
@@ -93,7 +129,7 @@ downscaleNamespacesWithTimeRules:
       - "nginx-6"
       withCron: "01:30-14:54"
     - namespaces:
-      - "any-other"
+      - "unspecified"
       withCron: "01:30-14:56"
 ```
 
