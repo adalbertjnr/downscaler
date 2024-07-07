@@ -233,6 +233,9 @@ func (c *Scheduler) runTasks(task SchedulerTask, stopch chan struct{}) {
 				if next == shared.KillCurrentRoutine {
 					return
 				}
+				if next == shared.RestartRoutine {
+					continue
+				}
 			}
 		}
 	}
@@ -293,18 +296,19 @@ func (c *Scheduler) inspectReplicasStateByNamespace(ctx context.Context, namespa
 			return shared.AppStartupWithNoDataWrite, nil
 		}
 
-		for _, metadata := range namespaceState {
-			if metadata.State == nil && metadata.Status == shared.EmptyNamespace {
-				continue
+		for _, namespace := range namespaces {
+			if metadata, found := namespaceState[namespace+".yaml"]; found {
+				if metadata.State == nil && metadata.Status == shared.EmptyNamespace {
+					continue
+				}
+				sum, count, err := parseReplicaState(metadata.State)
+				if err != nil {
+					slog.Error("conversion error", "err", err)
+					return shared.InspectError, err
+				}
+				replicaCountSum += sum
+				notEmptyIndex += count
 			}
-
-			sum, count, err := parseReplicaState(metadata.State)
-			if err != nil {
-				slog.Error("conversion error", "err", err)
-				return shared.InspectError, err
-			}
-			replicaCountSum += sum
-			notEmptyIndex += count
 		}
 
 		if replicaCountSum/notEmptyIndex == int(shared.DeploymentsWithDownscaledState) {
