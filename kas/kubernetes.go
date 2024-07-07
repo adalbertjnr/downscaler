@@ -168,7 +168,6 @@ func (k KubernetesImpl) StartUpscaling(ctx context.Context, scheduledNamespaces 
 
 	deploymentMapList := filterDeploymentsByNamespace(ctx, namespaces, k)
 	extractedStateByNamespaces := extractIndexByNamespaces(apps, namespaces)
-	fmt.Println(namespaces)
 
 	for _, namespace := range namespaces {
 		if cmValue, found := extractedStateByNamespaces[namespace+".yaml"]; found {

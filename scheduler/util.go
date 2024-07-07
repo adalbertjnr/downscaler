@@ -182,24 +182,18 @@ func (c *Scheduler) now() time.Time {
 }
 
 func logWaitRecurrenceDaysWithSleep(now time.Weekday) {
-	slog.Info("time", "today is", now.String(), "recurrence days range", "false",
-		"action", "waiting", "next try", "1 minute",
-	)
+	slog.Info("time", "today is", now.String(), "recurrence days range", "false", "action", "waiting", "next try", "1 minute")
 	time.Sleep(time.Minute * 1)
 }
 
 func logWaitBeforeDownscalingWithSleep(now time.Time, targetTimeToDownscale time.Time, namespaces []string) {
 	ut, nw := toStringWithFormat(targetTimeToDownscale, now)
-	slog.Info("task", "current time", nw, "provided crontime", ut,
-		"namespace(s)", namespaces, "status", "before downscaling", "next retry", "1 minute",
-	)
+	slog.Info("task", "current time", nw, "provided crontime", ut, "status", "before downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
 	time.Sleep(time.Minute * 1)
 }
 
 func logWaitAfterDownscalingWithSleep(now time.Time, targetTimeToUpscale time.Time, namespaces []string) {
 	fr, nw := toStringWithFormat(targetTimeToUpscale, now)
-	slog.Info("task", "current time", nw, "provided crontime", fr,
-		"namespace(s)", namespaces, "status", "after downscaling", "next retry", "1 minute",
-	)
+	slog.Info("task", "current time", nw, "provided crontime", fr, "status", "after downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
 	time.Sleep(time.Minute * 1)
 }
