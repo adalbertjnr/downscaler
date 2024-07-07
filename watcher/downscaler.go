@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/adalbertjnr/downscaler/helpers"
-	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/internal/common"
+	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/shared"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +26,7 @@ func New() *Watcher {
 func (w *Watcher) DownscalerKind(
 	ctx context.Context,
 	metadata shared.Metadata,
-	client k8sutil.KubernetesHelper,
+	client kas.Kubernetes,
 ) {
 
 	for {
@@ -36,8 +36,7 @@ func (w *Watcher) DownscalerKind(
 			metadata.Namespace,
 		)
 		if err != nil {
-			slog.Error("error initializing a new configmap watcher",
-				"next retry", "10 seconds", "error", err)
+			slog.Error("error initializing a new configmap watcher", "next retry", "10 seconds", "error", err)
 			time.Sleep(time.Second * 10)
 			continue
 		}
@@ -47,26 +46,20 @@ func (w *Watcher) DownscalerKind(
 			event, open := <-watcher.ResultChan()
 			if !open {
 				watcher.Stop()
-				slog.Warn("watcher",
-					"status", "closed", "reason", "recycling due to timeout seconds")
+				slog.Warn("watcher", "status", "closed", "reason", "recycling due to timeout seconds")
 				break createNewWatcher
 			}
 			switch event.Type {
 			case watch.Modified:
 				downscalerData := event.Object.(*unstructured.Unstructured)
 				data := &shared.DownscalerPolicy{}
-				if err := helpers.UnmarshalDataPolicy(downscalerData, data); err != nil {
+				if err := common.UnmarshalDataPolicy(downscalerData, data); err != nil {
 					slog.Error("unmarshaling", "error unmarshaling in the watcher", err)
 				}
-				slog.Info("watcher",
-					"message", "downscalercrd was updated",
-					"name", data.Metadata.Name,
-				)
+				slog.Info("watcher", "kind", "downscaler", "name", data.Metadata.Name, "status", "updated")
 				w.RtObjectch <- event.Object
 			case watch.Error:
-				slog.Error("error updating the object",
-					"resource type", "Downscaler",
-				)
+				slog.Error("error updating the object", "resource type", "Downscaler")
 			}
 		}
 	}

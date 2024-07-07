@@ -14,21 +14,21 @@ spec:
             key: namespace
             operator: exclude
             values:
-            - "local-path-storage"
-            - "kube-system"
-            - "downscaler"
+              - "local-path-storage"
+              - "kube-system"
+              - "downscaler"
         withNamespaceOpts:
           downscaleNamespacesWithTimeRules:
             rules:
-              - namespaces: 
-                - "nginx-2"
+              - namespaces:
+                  - "nginx-2"
                 withCron: "01:30-15:50"
               - namespaces:
-                - "nginx-5"
+                  - "nginx-5"
                 withCron: "01:30-15:51"
               - namespaces:
-                - "nginx-6"
+                  - "nginx-6"
                 withCron: "01:30-15:53"
               - namespaces:
-                - "any-other"
+                  - "unspecified"
                 withCron: "01:30-15:57"

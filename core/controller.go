@@ -7,9 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/adalbertjnr/downscaler/cron"
-	"github.com/adalbertjnr/downscaler/helpers"
-	"github.com/adalbertjnr/downscaler/k8sutil"
+	"github.com/adalbertjnr/downscaler/input"
+	"github.com/adalbertjnr/downscaler/internal/common"
+	"github.com/adalbertjnr/downscaler/kas"
+	"github.com/adalbertjnr/downscaler/scheduler"
 	"github.com/adalbertjnr/downscaler/shared"
 	"github.com/adalbertjnr/downscaler/watcher"
 
@@ -18,32 +19,35 @@ import (
 )
 
 type Controller struct {
-	client            k8sutil.KubernetesHelper
-	cron              cron.Cron
+	client            kas.Kubernetes
+	scheduler         scheduler.Scheduler
 	rtObjectch        chan runtime.Object
 	cmObjectch        chan shared.DownscalerPolicy
 	ctx               context.Context
 	cancelFn          context.CancelFunc
 	initialCronConfig *shared.DownscalerPolicy
 	watch             *watcher.Watcher
+	input             *input.FromArgs
 }
 
 func NewController(ctx context.Context,
-	client k8sutil.KubernetesHelper,
-	cron *cron.Cron,
+	client kas.Kubernetes,
+	scheduler *scheduler.Scheduler,
 	initialCronConfig *shared.DownscalerPolicy,
 	watch *watcher.Watcher,
+	input *input.FromArgs,
 ) *Controller {
 	context, cancel := context.WithCancel(ctx)
 	return &Controller{
 		client:            client,
-		cron:              *cron,
+		scheduler:         *scheduler,
 		initialCronConfig: initialCronConfig,
 		rtObjectch:        make(chan runtime.Object, 1),
 		cmObjectch:        make(chan shared.DownscalerPolicy, 1),
 		ctx:               context,
 		cancelFn:          cancel,
 		watch:             watch,
+		input:             input,
 	}
 }
 
@@ -51,7 +55,7 @@ func (c *Controller) updateNewCronLoop() {
 	for {
 		select {
 		case cmDataPolicy := <-c.cmObjectch:
-			c.cron.AddCronDetails(&cmDataPolicy)
+			c.scheduler.AddSchedulerDetails(&cmDataPolicy)
 		case <-c.ctx.Done():
 			return
 		}
@@ -61,7 +65,7 @@ func (c *Controller) updateNewCronLoop() {
 func (c *Controller) StartDownscaler() {
 	go c.ReceiveNewConfigMapData()
 	go c.updateNewCronLoop()
-	go c.cron.StartCron()
+	go c.scheduler.StartScheduler()
 
 	slog.Info("downscaler initialization", "status", "initialized")
 
@@ -77,7 +81,7 @@ func (c *Controller) ReceiveNewConfigMapData() {
 			cm, converted := object.(*unstructured.Unstructured)
 			if converted {
 				data := &shared.DownscalerPolicy{}
-				err := helpers.UnmarshalDataPolicy(cm, data)
+				err := common.UnmarshalDataPolicy(cm, data)
 				if err != nil {
 					slog.Error("error unmarshaling the yaml data policy", "error", err.Error())
 				}
@@ -96,4 +100,17 @@ func (c *Controller) HandleSignals() {
 	<-sigch
 	slog.Warn("the downscaler received a signal to be terminated")
 	c.cancelFn()
+}
+
+func (c *Controller) ValidateConfigMapInitialization() {
+	if c.input.RunUpscaling {
+		cm := c.client.ListConfigMap(c.ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+		if cm != nil {
+			return
+		}
+		err := c.client.CreateConfigMap(c.ctx, c.input.ConfigMapName, c.input.ConfigMapNamespace)
+		if err != nil {
+			return
+		}
+	}
 }

@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
@@ -22,4 +22,4 @@ USER alpineuser
 
 COPY --from=builder /app .
 
-CMD ["./app"]
+ENTRYPOINT ["./app"]

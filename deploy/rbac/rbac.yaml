@@ -3,30 +3,33 @@ kind: ClusterRole
 metadata:
   name: downscaler-cluster-role
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - list
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - deployments/scale
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - scheduler.go
-  resources:
-  - downscalers
-  verbs:
-  - watch
-  - list
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - patch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - deployments/scale
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+  - apiGroups:
+      - scheduler.go
+    resources:
+      - downscalers
+    verbs:
+      - watch
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

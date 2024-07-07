@@ -1,4 +1,4 @@
-package cron
+package scheduler
 
 const (
 	ErrDefaultUpTimeNotFound          = "default uptime is missing"
