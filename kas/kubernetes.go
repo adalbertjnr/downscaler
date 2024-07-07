@@ -166,13 +166,9 @@ func (k KubernetesImpl) StartUpscaling(ctx context.Context, scheduledNamespaces 
 		slog.Error("unmarshal cm apps", "err", err)
 	}
 
-	if unspecified := validateIfUnspecified(namespaces); unspecified {
-		ns := availableNamespacesIfUnspecified(apps, scheduledNamespaces)
-		namespaces = ns
-	}
-
 	deploymentMapList := filterDeploymentsByNamespace(ctx, namespaces, k)
 	extractedStateByNamespaces := extractIndexByNamespaces(apps, namespaces)
+	fmt.Println(namespaces)
 
 	for _, namespace := range namespaces {
 		if cmValue, found := extractedStateByNamespaces[namespace+".yaml"]; found {

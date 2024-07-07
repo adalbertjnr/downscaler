@@ -38,30 +38,6 @@ func runUpscalingByDeploymentNameStateIndex(ctx context.Context, k KubernetesImp
 	}
 }
 
-func validateIfUnspecified(namespaces []string) bool {
-	for _, namespace := range namespaces {
-		if namespace == shared.Unspecified {
-			return true
-		}
-	}
-	return false
-}
-
-func availableNamespacesIfUnspecified(apps map[string]shared.Apps, scheduledNamespaces map[string]struct{}) []string {
-	var availableNamespaces []string
-
-	for namespaceIdx, value := range apps {
-		trimmedNamespace := strings.TrimPrefix(namespaceIdx, ".yaml")
-		if _, found := scheduledNamespaces[trimmedNamespace]; !found {
-			if value.Status == shared.NotEmptyNamespace {
-				availableNamespaces = append(availableNamespaces, trimmedNamespace)
-			}
-		}
-	}
-
-	return availableNamespaces
-}
-
 func createNewStateIndex(previousState string) string {
 	previousStateParts := strings.Split(previousState, ",")
 	return fmt.Sprintf("%s,%s,%d", previousStateParts[0], previousStateParts[1], shared.DeploymentsWithUpscaledState)
