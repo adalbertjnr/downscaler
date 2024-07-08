@@ -90,54 +90,94 @@ func generateScheduledNamespaces(scheduledNamespaces []string) map[string]struct
 	return scheduledNamespacesMap
 }
 
-func toStringWithFormat(from, now time.Time) (hourString, minuteString string) {
-	hourString = fmt.Sprintf("%02d:%02d", from.Hour(), from.Minute())
-	minuteString = fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
-	return hourString, minuteString
+func shouldConvertTimeFormat(timeFromRules string) bool {
+	return strings.Contains(timeFromRules, "PM")
 }
 
-func extractUpscalingAndDownscalingTime(rawTime string, loc *time.Location) (from, until time.Time) {
+func convertTimeFormat(timeFromRules, timeFormat string) (upscalingTime, downscalingTime time.Time, err error) {
+	timeParts := strings.SplitN(timeFromRules, "-", shared.ExpectedTimeParts)
+	if len(timeParts) != shared.ExpectedTimeParts {
+		slog.Error("error parsing cron time", "time received", timeFromRules)
+		return upscalingTime, downscalingTime, fmt.Errorf("invalid time format")
+	}
+
+	switch timeFormat {
+	case shared.Default24TimeFormat:
+		upscalingTime, err = time.Parse(shared.TimeFormat, timeParts[0])
+		if err != nil {
+			slog.Error("error parsing the time from", "time", timeParts[0])
+			return
+		}
+		downscalingTime, err = time.Parse(shared.TimeFormat, timeParts[1])
+		if err != nil {
+			slog.Error("error parsing the time until", "time", timeParts[1])
+			return
+		}
+
+	case shared.Default12TimeFormat:
+		upscalingTime, err = time.Parse(shared.TimeFormat12Ups, timeParts[0])
+		if err != nil {
+			return upscalingTime, downscalingTime, err
+		}
+
+		downscalingTime, err = time.Parse(shared.TimeFormat12Down, timeParts[1])
+		if err != nil {
+			return upscalingTime, downscalingTime, err
+		}
+
+	default:
+		return upscalingTime, downscalingTime, fmt.Errorf("convert time format error - provided time format not found")
+	}
+
+	return upscalingTime, downscalingTime, nil
+}
+
+func extractUpscalingAndDownscalingTime(timeFromRules string, loc *time.Location) (upscalingTime, downscalingTime time.Time) {
 	var err error
-	parts := strings.SplitN(rawTime, "-", ExpectedTimeParts)
-	if len(parts) != ExpectedTimeParts {
-		slog.Error("error parsing cron time", "time received", rawTime)
+	timeParts := strings.SplitN(timeFromRules, "-", shared.ExpectedTimeParts)
+	if len(timeParts) != shared.ExpectedTimeParts {
+		slog.Error("crontime parsing error", "time received", timeFromRules)
 		return
 	}
-	from, err = time.Parse(TimeFormat, parts[0])
-	if err != nil {
-		slog.Error("error parsing the time from", "time", parts[0])
-		return
-	}
-	until, err = time.Parse(TimeFormat, parts[1])
-	if err != nil {
-		slog.Error("error parsing the time until", "time", parts[1])
-		return
+
+	if shouldConvertTimeFormat(timeParts[1]) {
+		upscalingTime, downscalingTime, err = convertTimeFormat(timeFromRules, shared.Default12TimeFormat)
+		if err != nil {
+			slog.Error("crontime parsing error", "time received", timeFromRules, "err", err)
+			return
+		}
+	} else {
+		upscalingTime, downscalingTime, err = convertTimeFormat(timeFromRules, shared.Default24TimeFormat)
+		if err != nil {
+			slog.Error("crontime parsing error", "time received", timeFromRules, "err", err)
+			return
+		}
 	}
 
 	now := time.Now().In(loc)
-	from = time.Date(
+	upscalingTime = time.Date(
 		now.Year(),
 		now.Month(),
 		now.Day(),
-		from.Hour(),
-		from.Minute(),
+		upscalingTime.Hour(),
+		upscalingTime.Minute(),
 		0,
 		0,
 		loc,
 	)
 
-	until = time.Date(
+	downscalingTime = time.Date(
 		now.Year(),
 		now.Month(),
 		now.Day(),
-		until.Hour(),
-		until.Minute(),
+		downscalingTime.Hour(),
+		downscalingTime.Minute(),
 		0,
 		0,
 		loc,
 	)
 
-	return from, until
+	return upscalingTime, downscalingTime
 }
 
 func parseRecurrence(recurrence string) []time.Weekday {
@@ -186,14 +226,22 @@ func logWaitRecurrenceDaysWithSleep(now time.Weekday) {
 	time.Sleep(time.Minute * 1)
 }
 
-func logWaitBeforeDownscalingWithSleep(now time.Time, targetTimeToDownscale time.Time, namespaces []string) {
-	ut, nw := toStringWithFormat(targetTimeToDownscale, now)
-	slog.Info("task", "current time", nw, "provided crontime", ut, "status", "before downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
+func logWaitBeforeDownscalingWithSleep(now time.Time, targetTimeToDownscaleFromConfig string, namespaces []string) {
+	var (
+		nowStringFormatted   = fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
+		targetTimeToDowscale = strings.Split(targetTimeToDownscaleFromConfig, "-")
+	)
+
+	slog.Info("task", "current time", nowStringFormatted, "provided crontime", targetTimeToDowscale[1], "status", "before downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
 	time.Sleep(time.Minute * 1)
 }
 
-func logWaitAfterDownscalingWithSleep(now time.Time, targetTimeToUpscale time.Time, namespaces []string) {
-	fr, nw := toStringWithFormat(targetTimeToUpscale, now)
-	slog.Info("task", "current time", nw, "provided crontime", fr, "status", "after downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
+func logWaitAfterDownscalingWithSleep(now time.Time, targetTimeToUpscaleFromConfig string, namespaces []string) {
+	var (
+		nowStringFormatted  = fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute())
+		targetTimeToUpscale = strings.Split(targetTimeToUpscaleFromConfig, "-")
+	)
+
+	slog.Info("task", "current time", nowStringFormatted, "provided crontime", targetTimeToUpscale[0], "status", "after downscaling", "next retry", "1 minute", "namespace(s)", namespaces)
 	time.Sleep(time.Minute * 1)
 }

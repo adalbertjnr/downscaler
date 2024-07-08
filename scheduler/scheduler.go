@@ -16,11 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	ExpectedTimeParts = 2
-	TimeFormat        = "15:04"
-)
-
 type Rules struct {
 	Namespaces          []string
 	WithCron            string
@@ -211,7 +206,7 @@ func (c *Scheduler) runTasks(task SchedulerTask, stopch chan struct{}) {
 			}
 
 			if validateIfShouldRunDownscalingOrWait(now, currentReplicasState, targetTimeToDownscale, targetTimeToUpscale) {
-				logWaitBeforeDownscalingWithSleep(now, targetTimeToDownscale, namespaces)
+				logWaitBeforeDownscalingWithSleep(now, task.WithCron, namespaces)
 				continue
 			}
 
@@ -429,7 +424,7 @@ func (c *Scheduler) handleUpscaling(task SchedulerTask, stopch chan struct{}, na
 			}
 
 			if validateIfShoudRunUpscalingOrWait(now, targetTimeToUpscale, targetTimeToDownscale) {
-				logWaitAfterDownscalingWithSleep(now, targetTimeToUpscale, namespaces)
+				logWaitAfterDownscalingWithSleep(now, task.WithCron, namespaces)
 				continue
 			}
 
