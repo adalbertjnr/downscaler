@@ -38,6 +38,26 @@ spec:
   withCron: "01:30-14:50"
 ```
 
+**RBAC**
+> [!IMPORTANT] 
+> it's importantto note that if the flag run_upscaling=false there's no need to set the configmap within resources list therefore, the create and patch verbs can be removed.
+
+```yaml
+metadata:
+  name: downscaler-cluster-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - patch
+```
+
 ### Downscaler Example
 ```yaml
 apiVersion: scheduler.go/v1
@@ -139,6 +159,7 @@ downscaleNamespacesWithTimeRules:
 
 > [!NOTE]
 > even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod
+
 
 <br>
 
