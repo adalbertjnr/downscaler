@@ -192,8 +192,8 @@ func (k KubernetesImpl) StartDownscaling(ctx context.Context, namespaces []strin
 		}
 		deploymentAndReplicasFingerprint, _ := downscaleNamespace(ctx, k, namespace, shared.DefaultGroup)
 		deploymentStateByNamespace[namespace] = deploymentAndReplicasFingerprint
-
-		downscaleTheDownscaler(ctx, k, evicted)
 	}
+
+	downscaleTheDownscaler(ctx, k, evicted)
 	return deploymentStateByNamespace
 }

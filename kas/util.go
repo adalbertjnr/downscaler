@@ -98,6 +98,11 @@ func isNamespaceIgnored(namespace string, evicted shared.NotUsableNamespacesDuri
 	if _, exists := evicted.IgnoredNamespaces[namespace]; exists {
 		return true
 	}
+
+	if namespace == shared.DownscalerNamespace {
+		return true
+	}
+
 	return false
 }
 
