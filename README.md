@@ -127,11 +127,15 @@ downscaleNamespacesWithTimeRules:
       withCron: "01:30-14:52"
     - namespaces:
       - "nginx-6"
-      withCron: "01:30-14:54"
+      withCron: "01:30-02:54PM"
     - namespaces:
       - "unspecified"
-      withCron: "01:30-14:56"
+      withCron: "01:30-02:56PM"
 ```
+
+> [!TIP]
+> the time within withCron can be in both 12h or 24h format as the example above
+
 
 > [!NOTE]
 > even if the program still running, everything in the yaml can be updated in realtime, no need to restart the pod
