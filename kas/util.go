@@ -134,6 +134,15 @@ func downscaleNamespace(ctx context.Context, k Kubernetes, namespace, group stri
 	}, nil
 }
 
+func isDownscalerPresent(namespaces []string) bool {
+	for _, namespace := range namespaces {
+		if namespace == shared.DownscalerNamespace {
+			return true
+		}
+	}
+	return false
+}
+
 func downscaleTheDownscaler(ctx context.Context, k Kubernetes, evicted shared.NotUsableNamespacesDuringScheduling) {
 	if _, found := evicted.IgnoredNamespaces[shared.DownscalerNamespace]; !found {
 		deployments := k.GetDeployments(ctx, shared.DownscalerNamespace)
