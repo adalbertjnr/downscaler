@@ -1,4 +1,4 @@
-## Downscaler
+## Downscaler - very experimental
 
 Project for downscale kubernetes deployments with time rules by namespaces
 
@@ -124,14 +124,22 @@ matchExpressions:
   - "downscaler"
 ```
 
-<br>
+**if no namespace should be ignored**
 
+```yaml
+matchExpressions:
+  key: namespace
+  operator: exclude
+  values: []
+```
+
+<br>
 
 - **namespaces**: a list of namespaces that all deployments will be downscaled to zero
 - **withCron**: the provided time will be evaluated to downscale the deployments. For example, 01:30-14:50 means after 14:50 all deployments in the provided namespace will be downscaled to zero
 
 > [!TIP]
->  **unspecified**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zeroa except the namespaces provided in the matchExpressions like the example above
+>  **unspecified**: this is a special name to set under namespaces list such as the last index in the example below. It means that every deployment in any namespace in the cluster will be downscaled to zero except the namespaces provided in the matchExpressions like the example above
 
 <br>
 
@@ -152,6 +160,19 @@ downscaleNamespacesWithTimeRules:
       - "unspecified"
       withCron: "01:30-02:56PM"
 ```
+<br>
+
+**to downscale every namespace in the cluster**
+- can be used as the example above or such as the below.
+
+```yaml
+downscaleNamespacesWithTimeRules:
+  rules:
+    - namespaces:
+      - "unspecified"
+      withCron: "01:30-02:56PM"
+```
+
 
 > [!TIP]
 > the time within withCron can be in both 12h or 24h format as the example above
