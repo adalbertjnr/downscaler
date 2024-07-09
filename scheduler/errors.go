@@ -7,5 +7,6 @@ const (
 	ErrNotValidExpressionKey          = "not valid expression key"
 	ErrNotValidExpressionOperator     = "not valid expression operator"
 	ErrExpressionsValuesAreEmpty      = "the expression values are empty"
+	ErrEmptyRules                     = "empty rules - did you provide any?"
 	ErrNamespaceFromConfigDoNotExists = "the provided namespace from the yaml do not exists in the kubernetes cluster"
 )

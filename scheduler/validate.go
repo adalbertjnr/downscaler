@@ -71,6 +71,7 @@ func (c *Scheduler) Validate(downscalerData *shared.DownscalerPolicy) []string {
 	errors := make([]string, 0)
 	timeBlock := downscalerData.Spec.ExecutionOpts.Time
 	expressionBlock := downscalerData.Spec.ExecutionOpts.Time.Downscaler.DownscalerSelectorTerms.MatchExpressions
+	rules := downscalerData.Spec.ExecutionOpts.Time.Downscaler.WithNamespaceOpts.DownscaleNamespacesWithTimeRules.Rules
 
 	if err := validateCondition(timeBlock.TimeZone != "", ErrTimeZoneNotFound); err != "" {
 		errors = append(errors, err)
@@ -79,6 +80,9 @@ func (c *Scheduler) Validate(downscalerData *shared.DownscalerPolicy) []string {
 		errors = append(errors, err)
 	}
 	if err := validateCondition(expressionBlock.Key == "namespace", ErrNotValidExpressionKey); err != "" {
+		errors = append(errors, err)
+	}
+	if err := validateCondition(len(rules) > 0, ErrEmptyRules); err != "" {
 		errors = append(errors, err)
 	}
 	if err := validateCondition(
