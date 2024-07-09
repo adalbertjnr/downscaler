@@ -81,12 +81,8 @@ func (c *Scheduler) Validate(downscalerData *shared.DownscalerPolicy) []string {
 	if err := validateCondition(expressionBlock.Key == "namespace", ErrNotValidExpressionKey); err != "" {
 		errors = append(errors, err)
 	}
-	if err := validateCondition(len(expressionBlock.Values) > 0, ErrExpressionsValuesAreEmpty); err != "" {
-		errors = append(errors, err)
-	}
 	if err := validateCondition(
-		expressionBlock.Operator == "exclude" || expressionBlock.Operator == "notExclude",
-		ErrNotValidExpressionKey,
+		expressionBlock.Operator == "exclude", ErrNotValidExpressionKey,
 	); err != "" {
 		errors = append(errors, err)
 	}
