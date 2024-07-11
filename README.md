@@ -28,11 +28,12 @@ spec:
           imagePullPolicy: Always
           args:
             - --run_upscaling=true
-
+            - --timezone=America/Sao_Paulo
 ```
 
 > [!NOTE]
 > the deployment supports an argument (run_upscaling true or false) which means that in the provided time in the example below 01:30 it will run the upscaling proccess.
+> also supports custom timezone for the logger --timezone="America/Sao_Paulo
 
 ```yaml
   withCron: "01:30-14:50"
