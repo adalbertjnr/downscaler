@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/adalbertjnr/downscaler/internal/common"
+	"github.com/adalbertjnr/downscaler/common"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/shared"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

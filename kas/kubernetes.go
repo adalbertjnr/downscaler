@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/adalbertjnr/downscaler/internal/common"
+	"github.com/adalbertjnr/downscaler/common"
 	"github.com/adalbertjnr/downscaler/shared"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

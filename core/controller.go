@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/adalbertjnr/downscaler/common"
 	"github.com/adalbertjnr/downscaler/input"
-	"github.com/adalbertjnr/downscaler/internal/common"
 	"github.com/adalbertjnr/downscaler/kas"
 	"github.com/adalbertjnr/downscaler/scheduler"
 	"github.com/adalbertjnr/downscaler/shared"

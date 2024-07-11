@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o app
+RUN CGO_ENABLED=0 GOOS=linux go build -o app ./cmd
 
 FROM alpine
 
@@ -20,6 +20,6 @@ RUN chown -R alpineuser:alpinegroup /app
 
 USER alpineuser
 
-COPY --from=builder /app .
+COPY --from=builder /app/app .
 
 ENTRYPOINT ["./app"]
