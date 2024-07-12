@@ -24,7 +24,7 @@ spec:
       serviceAccount: downscaler-sa
       containers:
         - name: downscaler-ctn
-          image: adalbertjnr/downscaler:latest
+          image: ghcr.io/adalbertjnr/downscaler:latest
           imagePullPolicy: Always
           args:
             - --run_upscaling=true
