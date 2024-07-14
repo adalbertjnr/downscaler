@@ -12,6 +12,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func (c *Scheduler) releaseTaskRoutineIfNotUpscaling(task SchedulerTask) {
+	if !c.input.RunUpscaling {
+		key := task.WithCron + strings.Join(task.Namespaces, ",")
+		if ch, exists := c.taskRoutines[key]; exists {
+			delete(c.taskRoutines, key)
+			close(ch)
+		}
+	}
+}
+
 func namespaceIndexAvailable(namespaces []string, cm *corev1.ConfigMap) bool {
 	if cm.Data == nil {
 		return false

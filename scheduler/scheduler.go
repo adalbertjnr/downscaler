@@ -402,6 +402,9 @@ func (c *Scheduler) handleDownscaling(task SchedulerTask, namespaces []string) {
 	}
 
 	toCmCurrentState := c.Kubernetes.StartDownscaling(c.ctx, namespaces, notUsableNamespaces)
+
+	c.releaseTaskRoutineIfNotUpscaling(task)
+
 	err := c.writeOldStateDeploymentsReplicas(c.ctx, toCmCurrentState)
 	if err != nil {
 		slog.Error("error writing state after downscaling", "err", err)
