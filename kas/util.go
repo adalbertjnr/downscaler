@@ -24,10 +24,12 @@ func runUpscalingByDeploymentNameStateIndex(ctx context.Context, k KubernetesImp
 		}
 
 		deployment := deploymentMapList[cmDeploymentName]
-		k.ScaleDeployments(ctx, namespace, deployment, patch, cmDeploymentReplicas)
+		if deployment != nil {
+			k.ScaleDeployments(ctx, namespace, deployment, patch, cmDeploymentReplicas)
 
-		stateAfterUpscaling := createNewStateIndex(cmStoredState)
-		newState = append(newState, stateAfterUpscaling)
+			stateAfterUpscaling := createNewStateIndex(cmStoredState)
+			newState = append(newState, stateAfterUpscaling)
+		}
 	}
 	return map[string]shared.Apps{
 		namespace: {
