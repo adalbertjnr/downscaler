@@ -73,7 +73,7 @@ spec:
                   - "unspecified"
                 withCron: "01:30-08:00PM"
 ```
-3 - ***only downscale nginx-1 namespace but preserve the rest. It is suggested to set the downscaler namespace in this scenario one minue after, otherwise it will be up and running doing nothing in the cluster.***
+3 - ***only downscale nginx-1 namespace but preserve the rest. It is suggested to set the downscaler namespace as well, otherwise it will be up and running doing nothing in the cluster.***
 ```yaml
 apiVersion: scheduler.go/v1
 kind: Downscaler
@@ -96,10 +96,8 @@ spec:
             rules:
               - namespaces:
                   - "nginx-1"
-                withCron: "01:30-08:00PM"
-              - namespaces:
                   - "downscaler"
-                withCron: "01:30-08:01PM"
+                withCron: "01:30-08:00PM"
 ```
 4 - ***downscale every namespace in the cluster at 10PM but not kube-system***
 ```yaml
