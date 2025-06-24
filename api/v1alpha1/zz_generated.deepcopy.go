@@ -21,7 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/adalbertjnr/downscalerk8s/internal/types"
+	"github.com/adalbertjnr/downscaler/internal/types"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

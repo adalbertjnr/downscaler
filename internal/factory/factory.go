@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/client"
-	"github.com/adalbertjnr/downscalerk8s/internal/store"
-	"github.com/adalbertjnr/downscalerk8s/internal/types"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
+	"github.com/adalbertjnr/downscaler/internal/client"
+	"github.com/adalbertjnr/downscaler/internal/store"
+	"github.com/adalbertjnr/downscaler/internal/types"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 )
