@@ -1,15 +1,17 @@
-# operatordownscaler - very experimental
+# downscaler - experimental
 
-Project for downscale kubernetes deployments/statefulsets with time rules by namespaces
+# Inspired by: https://github.com/hjacobs/kube-downscaler
+
+Project for scale down kubernetes deployments/statefulsets with time rules by namespaces
 
 ## Description
 
-The idea is to downscale development/staging environments after working hours to reduce waste. Very handy with karpenter.
+The idea is to scale down development/staging environments after working hours to reduce waste. Very handy with karpenter.
 The project can be used with postgres, sqlite or memory.
 
 - **Memory**: It will always scale down to 0 and scale up to 1 (If managed with argocd the argo could handle the correct amount of replicas)
-- **Postgres**: It will always scale down to 0 and scale up to the last seen replicas before the downscale occurs.
-- **Sqlite**: It will always scale down to 0 and scale up to the last seen replicas before the downscale occurs. The difference is the database the sqlite creates must be persisted, otherwise it will be removed when the pod dies.
+- **Postgres**: It will always scale down to 0 and scale up to the last seen replicas before the scale down occurs.
+- **Sqlite**: It will always scale down to 0 and scale up to the last seen replicas before the scale down occurs. The difference is the database the sqlite creates must be persisted, otherwise it will be removed when the pod dies.
 
 ## Getting started - Yaml example
 
