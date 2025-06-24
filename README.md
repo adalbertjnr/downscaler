@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 # downscaler - experimental
 
 # Inspired by: https://github.com/hjacobs/kube-downscaler
 
 Project for scale down kubernetes deployments/statefulsets with time rules by namespaces
+=======
+# kubetime-scaler
+
+# very-experimental
+
+Project for scale up and scale down kubernetes deployments/statefulsets with time rules by namespaces
+>>>>>>> main
 
 ## Description
 
@@ -20,14 +28,18 @@ The project can be used with postgres, sqlite or memory.
 **downscalerOptions.ResourceScaling:** It will create a default config for any index of rules, meaning it will consider to scale deployments/statefulsets (If some namespace have different needs, maybe only statefulsets, can be overrided with overrideScaling)
 **downscalerOptions.timeRules.rules:** Each index is a config block with namespaces to scale during downscaleTime and upscaleTime.
 
+<<<<<<< HEAD
 **- Image: ghcr.io/adalbertjnr/downscaler:latest**
+=======
+**- Image: ghcr.io/adalbertjnr/kubetime-scaler:latest**
+>>>>>>> main
 
 ```yaml
 apiVersion: downscaler.go/v1alpha1
 kind: Downscaler
 metadata:
-  name: downscaler
-  namespace: downscaler
+  name: kubetime-scaler
+  namespace: kubetime-scaler
 spec:
   config:
     cronLoggerInterval: 60
@@ -77,8 +89,13 @@ The config below will enable sqlite.
 
 ```yaml
 containers:
+<<<<<<< HEAD
   - name: downscaler
     image: "ghcr.io/adalbertjnr/downscaler:latest"
+=======
+  - name: kubetime-scaler
+    image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
+>>>>>>> main
     command:
       - /manager
     args:
@@ -94,8 +111,13 @@ The config below will enable postgres.
 
 ```yaml
 containers:
+<<<<<<< HEAD
   - name: downscaler
     image: "ghcr.io/adalbertjnr/downscaler:latest"
+=======
+  - name: kubetime-scaler
+    image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
+>>>>>>> main
     command:
       - /manager
     args:
@@ -114,7 +136,7 @@ containers:
 ### Installing:
 
 ```
-- kubectl create namespace downscaler
+- kubectl create namespace kubetime-scaler
 ```
 
 - RBAC:

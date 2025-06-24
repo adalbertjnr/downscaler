@@ -4,7 +4,11 @@ import (
 	"log/slog"
 	"strings"
 
+<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/api/v1alpha1"
+=======
+	"github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
+>>>>>>> main
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 

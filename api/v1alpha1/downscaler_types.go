@@ -17,7 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/internal/types"
+=======
+	"github.com/adalbertjnr/kubetime-scaler/internal/types"
+>>>>>>> main
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

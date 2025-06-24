@@ -4,8 +4,13 @@ import (
 	"context"
 	"fmt"
 
+<<<<<<< HEAD
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
 	"github.com/adalbertjnr/downscaler/internal/utils"
+=======
+	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
+	"github.com/adalbertjnr/kubetime-scaler/internal/utils"
+>>>>>>> main
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -77,7 +82,7 @@ func (c *APIClient) Get(namespace string, resource any, name ...string) error {
 func (c *APIClient) GetDownscaler(downscalerObject downscalergov1alpha1.Downscaler) (downscaler downscalergov1alpha1.Downscaler, err error) {
 	namespace, err := utils.GetNamespace()
 	if err != nil {
-		namespace = "downscaler"
+		namespace = "kubetime-scaler"
 	}
 
 	if err := c.Client.Get(context.Background(), types.NamespacedName{

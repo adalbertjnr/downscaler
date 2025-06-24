@@ -5,10 +5,17 @@ import (
 	"database/sql"
 	"errors"
 
+<<<<<<< HEAD
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
 	"github.com/adalbertjnr/downscaler/internal/client"
 	"github.com/adalbertjnr/downscaler/internal/store"
 	"github.com/adalbertjnr/downscaler/internal/types"
+=======
+	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
+	"github.com/adalbertjnr/kubetime-scaler/internal/client"
+	"github.com/adalbertjnr/kubetime-scaler/internal/store"
+	"github.com/adalbertjnr/kubetime-scaler/internal/types"
+>>>>>>> main
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 )

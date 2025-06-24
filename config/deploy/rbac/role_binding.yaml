@@ -3,12 +3,12 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/name: operatordownscaler
-  name: downscaler-clusterrolebinding
+  name: kubetime-scaler-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: downscaler-clusterrole
+  name: kubetime-scaler-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: downscaler-sa
-  namespace: downscaler
+  name: kubetime-scaler-sa
+  namespace: kubetime-scaler

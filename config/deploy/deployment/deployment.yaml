@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: downscaler
-  namespace: downscaler
+  name: kubetime-scaler
+  namespace: kubetime-scaler
   labels:
     app.kubernetes.io/name: operatordownscaler
 spec:
@@ -18,8 +18,8 @@ spec:
         app.kubernetes.io/name: operatordownscaler
     spec:
       containers:
-        - name: downscaler
-          image: public.ecr.aws/v5l8y3e2/downscaler:latest
+        - name: kubetime-scaler
+          image: ghcr.io/adalbertjnr/kubetime-scaler:latest
           command:
             - /manager
           # args:
@@ -61,7 +61,7 @@ spec:
               drop:
                 - ALL
             allowPrivilegeEscalation: false
-      serviceAccountName: downscaler-sa
-      serviceAccount: downscaler-sa
+      serviceAccountName: kubetime-scaler-sa
+      serviceAccount: kubetime-scaler-sa
       securityContext:
         runAsNonRoot: true

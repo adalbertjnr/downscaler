@@ -5,7 +5,11 @@ import (
 	"database/sql"
 	"testing"
 
+<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/internal/store"
+=======
+	"github.com/adalbertjnr/kubetime-scaler/internal/store"
+>>>>>>> main
 	"github.com/stretchr/testify/assert"
 )
 
