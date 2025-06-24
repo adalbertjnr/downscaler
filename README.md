@@ -1,6 +1,6 @@
 # downscaler - experimental
 
-# Inspired by: https://github.com/hjacobs/kube-downscaler
+### Inspired by: https://github.com/hjacobs/kube-downscaler
 
 Project for scale down kubernetes deployments/statefulsets with time rules by namespaces
 
