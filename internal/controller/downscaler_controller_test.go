@@ -29,14 +29,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/client"
-	"github.com/adalbertjnr/downscalerk8s/internal/db"
-	"github.com/adalbertjnr/downscalerk8s/internal/factory"
-	"github.com/adalbertjnr/downscalerk8s/internal/manager"
-	"github.com/adalbertjnr/downscalerk8s/internal/store"
-	objecttypes "github.com/adalbertjnr/downscalerk8s/internal/types"
-	"github.com/adalbertjnr/downscalerk8s/internal/utils"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
+	"github.com/adalbertjnr/downscaler/internal/client"
+	"github.com/adalbertjnr/downscaler/internal/db"
+	"github.com/adalbertjnr/downscaler/internal/factory"
+	"github.com/adalbertjnr/downscaler/internal/manager"
+	"github.com/adalbertjnr/downscaler/internal/store"
+	objecttypes "github.com/adalbertjnr/downscaler/internal/types"
+	"github.com/adalbertjnr/downscaler/internal/utils"
 )
 
 var _ = Describe("Downscaler Controller", func() {

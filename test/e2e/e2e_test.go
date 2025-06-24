@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/adalbertjnr/downscalerk8s/test/utils"
+	"github.com/adalbertjnr/downscaler/test/utils"
 )
 
 const namespace = "operatordownscaler-system"

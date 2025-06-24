@@ -1,5 +1,7 @@
 # operatordownscaler - very experimental
 
+# Inspired on: https://codeberg.org/hjacobs/kube-downscaler
+
 Project for downscale kubernetes deployments/statefulsets with time rules by namespaces
 
 ## Description
@@ -76,7 +78,7 @@ The config below will enable sqlite.
 ```yaml
 containers:
   - name: downscaler
-    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
+    image: "ghcr.io/adalbertjnr/downscaler:latest"
     command:
       - /manager
     args:
@@ -93,7 +95,7 @@ The config below will enable postgres.
 ```yaml
 containers:
   - name: downscaler
-    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
+    image: "ghcr.io/adalbertjnr/downscaler:latest"
     command:
       - /manager
     args:

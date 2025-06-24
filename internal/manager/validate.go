@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscaler/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 

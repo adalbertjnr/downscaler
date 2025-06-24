@@ -34,15 +34,14 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/client"
-	"github.com/adalbertjnr/downscalerk8s/internal/controller"
-	"github.com/adalbertjnr/downscalerk8s/internal/db"
-	"github.com/adalbertjnr/downscalerk8s/internal/factory"
-	"github.com/adalbertjnr/downscalerk8s/internal/manager"
-	"github.com/adalbertjnr/downscalerk8s/internal/store"
-	"github.com/adalbertjnr/downscalerk8s/internal/utils"
-	"github.com/go-logr/logr"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
+	"github.com/adalbertjnr/downscaler/internal/client"
+	"github.com/adalbertjnr/downscaler/internal/controller"
+	"github.com/adalbertjnr/downscaler/internal/db"
+	"github.com/adalbertjnr/downscaler/internal/factory"
+	"github.com/adalbertjnr/downscaler/internal/manager"
+	"github.com/adalbertjnr/downscaler/internal/store"
+	"github.com/adalbertjnr/downscaler/internal/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -82,10 +81,6 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	var logger logr.Logger
-	var storeClient *store.Persistence
-	var scalerFactory *factory.FactoryScaler
-
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	disableHTTP2 := func(c *tls.Config) {
@@ -118,21 +113,15 @@ func main() {
 	}
 
 	apiClient := client.NewAPIClient(mgr.GetClient())
-	if err != nil {
-		setupLog.Error(err, "unable to initialize the new api client")
-		os.Exit(1)
-	}
 
 	dbConfig := db.Config{
 		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
 		DSN:    utils.LookupString(os.Getenv("DB_ADDR"), ""),
 	}
 
-	{
-		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
-		storeClient = store.New(logger, enableDatabase, dbConfig)
-		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
-	}
+	logger := ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
+	storeClient := store.New(logger, enableDatabase, dbConfig)
+	scalerFactory := factory.NewScalerFactory(apiClient, storeClient, logger)
 
 	downscalerScheduler := (&manager.Downscaler{}).
 		Client(apiClient).
