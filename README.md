@@ -1,6 +1,6 @@
 # operatordownscaler - very experimental
 
-# Inspired on: https://codeberg.org/hjacobs/kube-downscaler
+# Inspired by: https://codeberg.org/hjacobs/kube-downscaler
 
 Project for downscale kubernetes deployments/statefulsets with time rules by namespaces
 
