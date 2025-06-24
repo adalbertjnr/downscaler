@@ -108,6 +108,11 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 	})
 
+	if err != nil {
+		setupLog.Error(err, "unable to start manager", "controller", "Downscaler")
+		os.Exit(1)
+	}
+
 	apiClient := client.NewAPIClient(mgr.GetClient())
 	dbConfig := db.Config{
 		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
