@@ -24,11 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/test/utils"
-=======
-	"github.com/adalbertjnr/kubetime-scaler/test/utils"
->>>>>>> main
 )
 
 const namespace = "operatordownscaler-system"

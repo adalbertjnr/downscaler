@@ -6,19 +6,11 @@ import (
 	"testing"
 	"time"
 
-<<<<<<< HEAD
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
 	apiclient "github.com/adalbertjnr/downscaler/internal/client"
 	"github.com/adalbertjnr/downscaler/internal/factory"
 	"github.com/adalbertjnr/downscaler/internal/store"
 	objecttypes "github.com/adalbertjnr/downscaler/internal/types"
-=======
-	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
-	apiclient "github.com/adalbertjnr/kubetime-scaler/internal/client"
-	"github.com/adalbertjnr/kubetime-scaler/internal/factory"
-	"github.com/adalbertjnr/kubetime-scaler/internal/store"
-	objecttypes "github.com/adalbertjnr/kubetime-scaler/internal/types"
->>>>>>> main
 	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"

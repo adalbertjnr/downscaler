@@ -34,7 +34,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-<<<<<<< HEAD
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
 	"github.com/adalbertjnr/downscaler/internal/client"
 	"github.com/adalbertjnr/downscaler/internal/controller"
@@ -43,16 +42,6 @@ import (
 	"github.com/adalbertjnr/downscaler/internal/manager"
 	"github.com/adalbertjnr/downscaler/internal/store"
 	"github.com/adalbertjnr/downscaler/internal/utils"
-=======
-	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
-	"github.com/adalbertjnr/kubetime-scaler/internal/client"
-	"github.com/adalbertjnr/kubetime-scaler/internal/controller"
-	"github.com/adalbertjnr/kubetime-scaler/internal/db"
-	"github.com/adalbertjnr/kubetime-scaler/internal/factory"
-	"github.com/adalbertjnr/kubetime-scaler/internal/manager"
-	"github.com/adalbertjnr/kubetime-scaler/internal/store"
-	"github.com/adalbertjnr/kubetime-scaler/internal/utils"
->>>>>>> main
 	"github.com/go-logr/logr"
 	//+kubebuilder:scaffold:imports
 )

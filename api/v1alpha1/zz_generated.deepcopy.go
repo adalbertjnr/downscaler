@@ -21,11 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/internal/types"
-=======
-	"github.com/adalbertjnr/kubetime-scaler/internal/types"
->>>>>>> main
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

@@ -4,13 +4,8 @@ import (
 	"context"
 	"fmt"
 
-<<<<<<< HEAD
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler/api/v1alpha1"
 	"github.com/adalbertjnr/downscaler/internal/utils"
-=======
-	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
-	"github.com/adalbertjnr/kubetime-scaler/internal/utils"
->>>>>>> main
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"

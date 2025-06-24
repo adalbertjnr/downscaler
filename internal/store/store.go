@@ -3,11 +3,7 @@ package store
 import (
 	"strings"
 
-<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/internal/db"
-=======
-	"github.com/adalbertjnr/kubetime-scaler/internal/db"
->>>>>>> main
 	"github.com/go-logr/logr"
 )
 

@@ -6,11 +6,7 @@ import (
 	"testing"
 	"time"
 
-<<<<<<< HEAD
 	"github.com/adalbertjnr/downscaler/internal/store"
-=======
-	"github.com/adalbertjnr/kubetime-scaler/internal/store"
->>>>>>> main
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
