@@ -11,7 +11,7 @@ spec:
     kind: Downscaler
     listKind: DownscalerList
     plural: downscalers
-    singular: kubetime-scaler
+    singular: downscaler
   scope: Namespaced
   versions:
   - name: v1alpha1

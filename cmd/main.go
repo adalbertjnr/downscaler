@@ -42,7 +42,6 @@ import (
 	"github.com/adalbertjnr/downscaler/internal/manager"
 	"github.com/adalbertjnr/downscaler/internal/store"
 	"github.com/adalbertjnr/downscaler/internal/utils"
-	"github.com/go-logr/logr"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -82,10 +81,6 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	var logger logr.Logger
-	var storeClient *store.Persistence
-	var scalerFactory *factory.FactoryScaler
-
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	disableHTTP2 := func(c *tls.Config) {
@@ -112,23 +107,16 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
 
 	apiClient := client.NewAPIClient(mgr.GetClient())
-
 	dbConfig := db.Config{
 		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
 		DSN:    utils.LookupString(os.Getenv("DB_ADDR"), ""),
 	}
 
-	{
-		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
-		storeClient = store.New(logger, enableDatabase, dbConfig)
-		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
-	}
+	logger := ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
+	storeClient := store.New(logger, enableDatabase, dbConfig)
+	scalerFactory := factory.NewScalerFactory(apiClient, storeClient, logger)
 
 	downscalerScheduler := (&manager.Downscaler{}).
 		Client(apiClient).

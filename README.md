@@ -26,8 +26,8 @@ The project can be used with postgres, sqlite or memory.
 apiVersion: downscaler.go/v1alpha1
 kind: Downscaler
 metadata:
-  name: kubetime-scaler
-  namespace: kubetime-scaler
+  name: downscaler
+  namespace: downscaler
 spec:
   config:
     cronLoggerInterval: 60
@@ -114,7 +114,7 @@ containers:
 ### Installing:
 
 ```
-- kubectl create namespace kubetime-scaler
+- kubectl create namespace downscaler
 ```
 
 - RBAC:

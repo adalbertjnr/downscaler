@@ -77,7 +77,7 @@ func (c *APIClient) Get(namespace string, resource any, name ...string) error {
 func (c *APIClient) GetDownscaler(downscalerObject downscalergov1alpha1.Downscaler) (downscaler downscalergov1alpha1.Downscaler, err error) {
 	namespace, err := utils.GetNamespace()
 	if err != nil {
-		namespace = "kubetime-scaler"
+		namespace = "downscaler"
 	}
 
 	if err := c.Client.Get(context.Background(), types.NamespacedName{
