@@ -1,8 +1,8 @@
 apiVersion: downscaler.go/v1alpha1
 kind: Downscaler
 metadata:
-  name: kubetime-scaler
-  namespace: kubetime-scaler
+  name: downscaler
+  namespace: downscaler
 spec:
   config:
     cronLoggerInterval: 60

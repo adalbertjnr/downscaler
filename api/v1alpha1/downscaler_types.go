@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/adalbertjnr/kubetime-scaler/internal/types"
+	"github.com/adalbertjnr/downscaler/internal/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

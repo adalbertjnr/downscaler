@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/adalbertjnr/kubetime-scaler/internal/store"
+	"github.com/adalbertjnr/downscaler/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 

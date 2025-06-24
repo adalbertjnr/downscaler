@@ -3,7 +3,7 @@ package store
 import (
 	"strings"
 
-	"github.com/adalbertjnr/kubetime-scaler/internal/db"
+	"github.com/adalbertjnr/downscaler/internal/db"
 	"github.com/go-logr/logr"
 )
 
